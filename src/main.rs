@@ -40,6 +40,50 @@ fn stow_dotfile<K: AsRef<OsStr>>(src: K) -> io::Result<()> {
     Ok(())
 }
 
+
+struct DirectoryScanner {
+    entries: Vec<PathBuf>,
+}
+
+impl DirectoryScanner {
+    pub fn new() -> Self {
+        Self {
+            entries: Vec::new(),
+        }
+    }
+
+    pub fn get_entries(&mut self, dir: &Path) -> io::Result<(Vec<PathBuf>)> {
+        self.collect_entries(dir)?;
+
+        self.entries = self
+            .entries
+            .iter_mut()
+            .map(|entry| fs::canonicalize(entry))
+            .filter_map(Result::ok)
+            .collect::<Vec<PathBuf>>();
+
+        Ok(self.entries.clone())
+    }
+
+    fn collect_entries(&mut self, dir: &Path) -> io::Result<()> {
+        if dir.is_dir() {
+            for entry in fs::read_dir(dir)? {
+                let entry = entry?;
+                let path = entry.path();
+
+                if path.is_dir() {
+                    if !path.ends_with(".git") {
+                        self.collect_entries(&path)?;
+                    }
+                } else {
+                    self.entries.push(path.into())
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
 struct FileHandler {}
 
 impl FileHandler {
