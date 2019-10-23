@@ -4,7 +4,7 @@ use std::ffi::OsStr;
 use std::fs::{self, File};
 use std::io::prelude::*;
 use std::io::{self, BufWriter};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Currently, the code sources the location of the dotfiles directory set by BADM
 /// in the env variable "BADM_DIR"
@@ -40,6 +40,31 @@ fn stow_dotfile<K: AsRef<OsStr>>(src: K) -> io::Result<()> {
     Ok(())
 }
 
+fn rollout_dotfile_symlinks() -> io::Result<()> {
+    // find dotfiles home
+    // TODO: handle panic
+    let dots_dir = Config::get_dots_dir(BADM_DIR_VAR).unwrap();
+
+    let create_dotfiles_symlink = |src: PathBuf| -> io::Result<()> {
+        let dst_symlink = src
+            .strip_prefix(BADM_DIR_VAR)
+            .expect("Not able to create destination path");
+
+        fs::hard_link(&src, dst_symlink)?;
+
+        Ok(())
+    };
+
+    // iterate through and create vector of filenames
+    let entries = DirectoryScanner::new().get_entries(dots_dir.as_ref())?;
+
+    // rollout each symlink
+    for entry in entries.into_iter() {
+        create_dotfiles_symlink(entry)?;
+    }
+
+    Ok(())
+}
 
 struct DirectoryScanner {
     entries: Vec<PathBuf>,
@@ -87,7 +112,7 @@ impl DirectoryScanner {
 struct FileHandler {}
 
 impl FileHandler {
-    // store a file in the dotfiles directory, create a symlink at the original source of the stowed file.
+    /// store a file in the dotfiles directory, create a symlink at the original source of the stowed file.
     pub fn store_file<K: AsRef<OsStr>>(src: K, dst: &Path) -> io::Result<()> {
         let src = src.as_ref();
 
@@ -121,8 +146,8 @@ impl FileHandler {
 struct Config {}
 
 impl Config {
-    fn get_dots_dir() -> Option<String> {
-        match env::var(BADM_DIR_VAR) {
+    fn get_dots_dir(var_name: &'static str) -> Option<String> {
+        match env::var(var_name) {
             Ok(location) => Some(location),
             Err(_) => None,
         }
