@@ -4,7 +4,9 @@ use std::ffi::OsStr;
 use std::fs::{self, File};
 use std::io::prelude::*;
 use std::io::{self, BufWriter};
-use std::path::{Path, PathBuf};
+use std::path::{self, Path, PathBuf};
+
+use badm_core::join_full_paths;
 
 /// Currently, the code sources the location of the dotfiles directory set by BADM
 /// in the env variable "BADM_DIR"
