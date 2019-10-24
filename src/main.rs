@@ -159,3 +159,53 @@ impl Config {
         env::set_var(BADM_DIR_VAR, location)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const BADM_TEST_DIR_VAR: &str = "BADM_TEST_DIR";
+
+    fn home_dir() -> PathBuf {
+        PathBuf::from("/tmp/badm/home/ferris")
+    }
+
+    fn mock() -> io::Result<()> {
+        let dots_dir = home_dir().join(".dotfiles");
+
+        if let Err(_) = fs::metadata(&dots_dir) {
+            fs::create_dir_all(&dots_dir)?;
+        }
+        env::set_var(BADM_TEST_DIR_VAR, dots_dir);
+
+        assert_eq!(
+            env::var(BADM_TEST_DIR_VAR),
+            Ok("/tmp/badm/home/ferris/.dotfiles".to_owned())
+        );
+
+        Ok(())
+    }
+
+    fn teardown() -> io::Result<()> {
+        let home_dir = home_dir();
+        let temp_dir = home_dir.parent().unwrap();
+
+        fs::remove_dir_all(temp_dir)?;
+        Ok(())
+    }
+
+    #[test]
+    fn stow_dotfiles_test() -> io::Result<()> {
+        mock()?;
+
+        let dotfile_location = home_dir().join(".profile");
+        let mut dotfile = File::create(&dotfile_location)?;
+        dotfile.write_all(b"alias la=\"ls -la\"")?;
+
+        stow_dotfile(BADM_TEST_DIR_VAR, &dotfile_location)?;
+
+        assert!(fs::symlink_metadata(dotfile_location)?.is_file() == false);
+        teardown()?;
+        Ok(())
+    }
+}
