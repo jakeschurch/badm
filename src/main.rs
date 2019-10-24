@@ -1,10 +1,17 @@
 #![allow(clippy::all)]
+
+#[cfg(not(target_os = "windows"))]
+use std::os::unix::fs::symlink;
+
+#[cfg(target_os = "windows")]
+use std::os::windows::fs::symlink_file as symlink;
+
 use std::env;
 use std::ffi::OsStr;
 use std::fs::{self, File};
 use std::io::prelude::*;
 use std::io::{self, BufWriter};
-use std::path::{self, Path, PathBuf};
+use std::path::{Path, PathBuf};
 
 use badm_core::join_full_paths;
 
@@ -16,12 +23,13 @@ fn main() {
     println!("Hello, world!");
 }
 
-fn stow_dotfile<K: AsRef<OsStr>>(src: K) -> io::Result<()> {
-    let src = src.as_ref();
-    let src_path = fs::canonicalize(src)?;
-
+// REVIEW:
+//     - recursive flag?
+//     - glob patterns?
+// TEMP: env_var input argument will go away when we convert to toml config
+fn stow_dotfile(env_var: &'static str, src: &PathBuf) -> io::Result<()> {
     // create destination path
-    let dots_dir = match Config::get_dots_dir(BADM_DIR_VAR) {
+    let dots_dir = match Config::get_dots_dir(env_var) {
         Some(dir) => dir,
         None => {
             let err = io::Error::new(io::ErrorKind::NotFound, "Not able to complete operation because BADM_DIR was not set. Please run `badm set-home=<DIR> first.`");
@@ -29,15 +37,17 @@ fn stow_dotfile<K: AsRef<OsStr>>(src: K) -> io::Result<()> {
         }
     };
 
-    let dst_path = Path::new(&dots_dir).join(&src_path);
+    let dst_path = join_full_paths(&PathBuf::from(dots_dir), &src).unwrap();
 
     // create directory if not available
     if !dst_path.exists() {
-        fs::create_dir_all(&dst_path)?
+        let dst_dir = dst_path.parent().unwrap();
+
+        fs::create_dir_all(dst_dir)?;
     }
 
     // move dotfile to dotfiles directory
-    FileHandler::store_file(&src_path, &dst_path)?;
+    FileHandler::store_file(&src, &dst_path)?;
 
     Ok(())
 }
@@ -52,7 +62,7 @@ fn rollout_dotfile_symlinks() -> io::Result<()> {
             .strip_prefix(BADM_DIR_VAR)
             .expect("Not able to create destination path");
 
-        fs::hard_link(&src, dst_symlink)?;
+        FileHandler::create_symlink(&src, dst_symlink)?;
 
         Ok(())
     };
@@ -111,23 +121,20 @@ impl DirectoryScanner {
     }
 }
 
+// REVIEW: Turn FileHandler into a trait?
 struct FileHandler {}
 
 impl FileHandler {
     /// store a file in the dotfiles directory, create a symlink at the original source of the stowed file.
-    pub fn store_file<K: AsRef<OsStr>>(src: K, dst: &Path) -> io::Result<()> {
-        let src = src.as_ref();
+    pub fn store_file(src: &Path, dst: &Path) -> io::Result<()> {
+        FileHandler::move_file(&src, &dst)?;
 
-        FileHandler::move_file(src, &dst)?;
-
-        fs::hard_link(&dst, &src)?;
+        FileHandler::create_symlink(dst, src)?;
 
         Ok(())
     }
 
-    fn move_file<K: AsRef<OsStr>>(src: K, dst: &Path) -> io::Result<()> {
-        let src = src.as_ref();
-
+    fn move_file(src: &Path, dst: &Path) -> io::Result<()> {
         // read file to String
         let mut contents = String::new();
         let mut f = File::open(src)?;
@@ -141,6 +148,11 @@ impl FileHandler {
         // remove file at src location
         fs::remove_file(&src)?;
 
+        Ok(())
+    }
+
+    fn create_symlink(src: &Path, dst: &Path) -> io::Result<()> {
+        symlink(src, dst)?;
         Ok(())
     }
 }

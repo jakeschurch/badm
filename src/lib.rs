@@ -1,4 +1,3 @@
-use std::io;
 use std::path::{self, PathBuf};
 
 /// Joins two full paths together.
