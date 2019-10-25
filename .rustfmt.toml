@@ -1,0 +1,17 @@
+wrap_comments=true
+comment_width=100
+format_code_in_doc_comments=true
+format_strings=true
+inline_attribute_width=50
+match_block_trailing_comma=true
+max_width=90
+newline_style="Unix"
+normalize_comments=true
+overflow_delimited_expr=true
+use_field_init_shorthand=true
+use_try_shorthand=true
+
+report_fixme="Unnumbered"
+report_todo="Unnumbered"
+
+unstable_features=true
