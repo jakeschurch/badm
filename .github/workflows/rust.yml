@@ -1,6 +1,6 @@
 name: Rust
 
-on: ["push","pull_request"]
+on: [push]
 
 jobs:
   build:
@@ -14,7 +14,3 @@ jobs:
     - name: Run tests
       run: cargo test --verbose
 
-    - name: Collect Coveralls Test Coverage
-      uses: coverallsapp/github-action@master
-      with:
-        github-token: ${{ secrets.coveralls_token }}
