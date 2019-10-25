@@ -4,6 +4,10 @@
 BADM is "But Another [Dotfiles](https://en.wikipedia.org/wiki/Hidden_file_and_hidden_directory) Manager".
 
 
+| Service | Master |Develop|
+|---------|--------|-------|
+| Test Coverage | [![Coverage Status](https://coveralls.io/repos/github/jakeschurch/badm/badge.svg?branch=master)](https://coveralls.io/github/jakeschurch/badm?branch=master) | [![Coverage Status](https://coveralls.io/repos/github/jakeschurch/badm/badge.svg?branch=master)](https://coveralls.io/github/jakeschurch/badm?branch=develop) |
+
 ## How it Works
 
 BADM moves files to the set dotfiles directory, replicating the file structure of the file's original location, and then replacing the file at the original location with a symlink to the stored dotfile..
