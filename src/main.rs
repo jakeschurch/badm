@@ -78,6 +78,52 @@ fn rollout_dotfile_symlinks() -> io::Result<()> {
     Ok(())
 }
 
+/// Create symlinks in directories relative to the dotfiles' directory hierarchy for "rolling out" new configurations.
+///
+/// For example: if Ferris downloaded their git dotfiles repo on a new setup in /home/ferris/.dotfiles:
+///
+/// <pre>
+/// /home
+/// └── ferris
+///     └── .dotfiles
+///         └── home
+///             └── ferris
+///                 └── .config
+///                     └── .gitconfig
+/// </pre>
+///
+/// They could easily setup their configuration files on this machine by setting up the relative symlinks
+///
+/// <pre>
+/// /home
+/// └── ferris
+///     ├── .config
+///     │   └── .gitconfig -> /home/ferris/.dotfiles/home/ferris/.config/.gitconfig
+///     └── .dotfiles
+///         └── home
+///             └── ferris
+///                 └── .config
+///                     └── .gitconfig
+/// </pre>
+///
+/// Directories to replicate the stored dotfile's directory structure will be created if not found.
+fn create_dotfiles_symlink(src: PathBuf, env_var: &'static str) -> io::Result<()> {
+    let dots_dir = Config::get_dots_dir(env_var).unwrap();
+    let dst_symlink = src
+        .strip_prefix(dots_dir)
+        .expect("Not able to create destination path");
+
+    let dst_dir = dst_symlink.parent().unwrap();
+
+    if !dst_dir.exists() {
+        fs::create_dir_all(dst_dir)?;
+    };
+
+    FileHandler::create_symlink(&src, dst_symlink)?;
+
+    Ok(())
+}
+
 struct DirectoryScanner {
     entries: Vec<PathBuf>,
 }
