@@ -66,9 +66,10 @@ fn rollout_dotfile_symlinks() -> io::Result<()> {
     Ok(())
 }
 
-/// Create symlinks in directories relative to the dotfiles' directory hierarchy for "rolling out" new configurations.
-///
-/// For example: if Ferris downloaded their git dotfiles repo on a new setup in /home/ferris/.dotfiles:
+/// Create symlinks in directories relative to the dotfiles' directory hierarchy
+/// for "rolling out" new configurations.
+/// Example: if Ferris downloaded a git dotfiles repo onto a new machine into the
+/// .dotfiles directory:
 ///
 /// <pre>
 /// /home
@@ -80,7 +81,10 @@ fn rollout_dotfile_symlinks() -> io::Result<()> {
 ///                     └── .gitconfig
 /// </pre>
 ///
-/// They could easily setup their configuration files on this machine by setting up the relative symlinks
+/// They could easily setup their configuration files on this machine by setting
+/// up the relative symlinks by storing their configuration files in one directory, and
+/// have that directory mimic the directory hiearchy of the target machine. This is what
+/// BADM hopes to achieve.
 ///
 /// <pre>
 /// /home
@@ -94,22 +98,27 @@ fn rollout_dotfile_symlinks() -> io::Result<()> {
 ///                     └── .gitconfig
 /// </pre>
 ///
-/// Directories to replicate the stored dotfile's directory structure will be created if not found.
-fn create_dotfiles_symlink(src: PathBuf, env_var: &'static str) -> io::Result<()> {
+/// Directories to replicate the stored dotfile's directory structure will be created if
+/// not found.
+fn create_dotfiles_symlink(src: &PathBuf, env_var: &'static str) -> io::Result<()> {
     let dots_dir = Config::get_dots_dir(env_var).unwrap();
-    let dst_symlink = src
-        .strip_prefix(dots_dir)
-        .expect("Not able to create destination path");
+    let dst_symlink = PathBuf::from("/").join(
+        src.strip_prefix(dots_dir)
+            .expect("Not able to create destination path"),
+    );
+
+    // if symlink already exists and points to src file, early return
+    if dst_symlink.exists() && fs::read_link(&dst_symlink)? == *src {
+        println!("Destination file link exists");
+        return Ok(());
+    };
 
     let dst_dir = dst_symlink.parent().unwrap();
-
     if !dst_dir.exists() {
         fs::create_dir_all(dst_dir)?;
     };
 
-    FileHandler::create_symlink(&src, dst_symlink)?;
-
-    Ok(())
+    FileHandler::create_symlink(&src, &dst_symlink)
 }
 
 struct DirectoryScanner {
