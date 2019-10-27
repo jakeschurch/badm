@@ -1,23 +1,11 @@
 #![allow(clippy::all)]
 
-#[cfg(not(target_os = "windows"))]
-use std::os::unix::fs::symlink;
-
-#[cfg(target_os = "windows")]
-use std::os::windows::fs::symlink_file as symlink;
-
-use std::env;
-use std::ffi::OsStr;
-use std::fs::{self, File};
-use std::io::prelude::*;
-use std::io::{self, BufWriter};
+use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 
+use badm_core::config::{Config, BADM_DIR_VAR};
 use badm_core::join_full_paths;
-
-/// Currently, the code sources the location of the dotfiles directory set by BADM
-/// in the env variable "BADM_DIR"
-const BADM_DIR_VAR: &str = "BADM_DIR";
 
 fn main() {
     println!("Hello, world!");

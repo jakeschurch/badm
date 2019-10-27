@@ -1,4 +1,4 @@
-use std::path::{self, PathBuf};
+pub mod config;
 
 /// Joins two full paths together.
 /// If path is unix and second path argument contains root directory, it is stripped.
