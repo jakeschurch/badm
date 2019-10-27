@@ -9,7 +9,10 @@ pub struct FileHandler;
 impl FileHandler {
     /// Store a file in the dotfiles directory, create a symlink at the original
     /// source of the stowed file.
-    pub fn store_file(src: &Path, dst: &Path) -> io::Result<()> {
+    pub fn store_file<P: AsRef<Path>, Q: AsRef<Path>>(src: P, dst: Q) -> io::Result<()> {
+        let src = src.as_ref();
+        let dst = dst.as_ref();
+
         FileHandler::move_file(&src, &dst)?;
 
         FileHandler::create_symlink(dst, src)?;
@@ -21,7 +24,13 @@ impl FileHandler {
     ///
     /// For Unix platforms, std::os::unix::fs::symlink is used to create
     /// symlinks. For Windows, std::os::windows::fs::symlink_file is used.
-    pub fn create_symlink(src: &Path, dst: &Path) -> io::Result<()> {
+    pub fn create_symlink<P: AsRef<Path>, Q: AsRef<Path>>(
+        src: P,
+        dst: Q,
+    ) -> io::Result<()> {
+        let src = src.as_ref();
+        let dst = dst.as_ref();
+
         #[cfg(not(target_os = "windows"))]
         use std::os::unix::fs::symlink;
 
@@ -31,7 +40,10 @@ impl FileHandler {
         Ok(())
     }
 
-    fn move_file(src: &Path, dst: &Path) -> io::Result<()> {
+    fn move_file<P: AsRef<Path>, Q: AsRef<Path>>(src: P, dst: Q) -> io::Result<()> {
+        let src = src.as_ref();
+        let dst = dst.as_ref();
+
         // read file to String
         let mut contents = String::new();
         let mut f = File::open(src)?;
