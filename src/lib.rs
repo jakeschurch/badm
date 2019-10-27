@@ -85,10 +85,13 @@ impl FileHandler {
 /// );
 /// ```
 // TODO: test windows root paths
-pub fn join_full_paths(
-    path_1: &PathBuf,
-    path_2: &PathBuf,
+pub fn join_full_paths<P: AsRef<Path>, Q: AsRef<Path>>(
+    path_1: P,
+    path_2: Q,
 ) -> Result<PathBuf, path::StripPrefixError> {
+    let path_1 = path_1.as_ref();
+    let path_2 = path_2.as_ref();
+
     if path_2.has_root() && cfg!(target_family = "unix") {
         let path_2 = path_2.strip_prefix("/")?;
         return Ok(path_1.join(path_2));

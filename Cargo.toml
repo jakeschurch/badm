@@ -1,5 +1,5 @@
 [package]
-name = "yadm"
+name = "badm"
 version = "0.1.0"
 authors = ["Jake Schurch <jakeschurch@gmail.com>"]
 edition = "2018"

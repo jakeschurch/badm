@@ -5,7 +5,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use badm_core::config::{Config, BADM_DIR_VAR};
-use badm_core::join_full_paths;
+use badm_core::{join_full_paths, FileHandler};
 
 fn main() {
     println!("Hello, world!");
@@ -15,17 +15,21 @@ fn main() {
 //     - recursive flag?
 //     - glob patterns?
 // TEMP: env_var input argument will go away when we convert to toml config
-fn stow_dotfile(env_var: &'static str, src: &PathBuf) -> io::Result<()> {
+fn stow_dotfile(src: &PathBuf, env_var: &'static str) -> io::Result<PathBuf> {
     // create destination path
     let dots_dir = match Config::get_dots_dir(env_var) {
         Some(dir) => dir,
         None => {
-            let err = io::Error::new(io::ErrorKind::NotFound, "Not able to complete operation because BADM_DIR was not set. Please run `badm set-home=<DIR> first.`");
+            let err = io::Error::new(
+                io::ErrorKind::NotFound,
+                "Not able to complete operation because BADM_DIR was not set. Please \
+                 run `badm set-home=<DIR> first.`",
+            );
             return Err(err);
         }
     };
 
-    let dst_path = join_full_paths(&PathBuf::from(dots_dir), &src).unwrap();
+    let dst_path = join_full_paths(dots_dir, src).unwrap();
 
     // create directory if not available
     if !dst_path.exists() {
@@ -37,30 +41,20 @@ fn stow_dotfile(env_var: &'static str, src: &PathBuf) -> io::Result<()> {
     // move dotfile to dotfiles directory
     FileHandler::store_file(&src, &dst_path)?;
 
-    Ok(())
+    Ok(dst_path)
 }
 
 fn rollout_dotfile_symlinks() -> io::Result<()> {
     // find dotfiles home
-    // TODO: handle panic
+    // TODO(#1): handle panic
     let dots_dir = Config::get_dots_dir(BADM_DIR_VAR).unwrap();
-
-    let create_dotfiles_symlink = |src: PathBuf| -> io::Result<()> {
-        let dst_symlink = src
-            .strip_prefix(BADM_DIR_VAR)
-            .expect("Not able to create destination path");
-
-        FileHandler::create_symlink(&src, dst_symlink)?;
-
-        Ok(())
-    };
 
     // iterate through and create vector of filenames
     let entries = DirectoryScanner::new().get_entries(dots_dir.as_ref())?;
 
     // rollout each symlink
     for entry in entries.into_iter() {
-        create_dotfiles_symlink(entry)?;
+        create_dotfiles_symlink(&entry, BADM_DIR_VAR)?;
     }
 
     Ok(())
@@ -164,60 +158,13 @@ impl DirectoryScanner {
     }
 }
 
-// REVIEW: Turn FileHandler into a trait?
-struct FileHandler {}
-
-impl FileHandler {
-    /// store a file in the dotfiles directory, create a symlink at the original source of the stowed file.
-    pub fn store_file(src: &Path, dst: &Path) -> io::Result<()> {
-        FileHandler::move_file(&src, &dst)?;
-
-        FileHandler::create_symlink(dst, src)?;
-
-        Ok(())
-    }
-
-    fn move_file(src: &Path, dst: &Path) -> io::Result<()> {
-        // read file to String
-        let mut contents = String::new();
-        let mut f = File::open(src)?;
-        f.read_to_string(&mut contents)?;
-
-        // write String contents to dst file
-        let dst_file = File::create(dst)?;
-        let mut writer = BufWriter::new(dst_file);
-        writer.write_all(contents.as_bytes())?;
-
-        // remove file at src location
-        fs::remove_file(&src)?;
-
-        Ok(())
-    }
-
-    fn create_symlink(src: &Path, dst: &Path) -> io::Result<()> {
-        symlink(src, dst)?;
-        Ok(())
-    }
-}
-
-struct Config {}
-
-impl Config {
-    fn get_dots_dir(var_name: &'static str) -> Option<String> {
-        match env::var(var_name) {
-            Ok(location) => Some(location),
-            Err(_) => None,
-        }
-    }
-
-    fn set_dots_dir<K: AsRef<OsStr>>(location: K) {
-        env::set_var(BADM_DIR_VAR, location)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use std::env;
+    use std::fs::{self, File};
+    use std::io::prelude::*;
 
     const BADM_TEST_DIR_VAR: &str = "BADM_TEST_DIR";
 
@@ -225,7 +172,11 @@ mod tests {
         PathBuf::from("/tmp/badm/home/ferris")
     }
 
-    fn mock() -> io::Result<()> {
+    fn dotfiles_dir() -> PathBuf {
+        PathBuf::from("/tmp/badm/home/ferris/.dotfiles/tmp/badm/home/ferris")
+    }
+
+    fn mock_home() -> io::Result<()> {
         let dots_dir = home_dir().join(".dotfiles");
 
         if let Err(_) = fs::metadata(&dots_dir) {
