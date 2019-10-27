@@ -249,17 +249,52 @@ mod tests {
         Ok(())
     }
 
+    // NOTE: assuming that location will always end in .profile
+    // REVIEW: name-change to something more fitting?
+    fn create_input_profile_dotfile(dotfile_location: &PathBuf) -> io::Result<()> {
+        // ensure parent dir exists
+        let parent_dir = dotfile_location.parent().unwrap();
+        if !parent_dir.exists() {
+            fs::create_dir_all(parent_dir)?;
+        };
+
+        if !dotfile_location.exists() {
+            // create .profile dotfile
+            let mut dotfile = File::create(&dotfile_location)?;
+            dotfile.write_all(b"alias la=\"ls -la\"")?;
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn create_dotfiles_symlink_test() -> io::Result<()> {
+        mock_home()?;
+
+        // mock the stowed dotfile
+        let stowed_dotfile = dotfiles_dir().join(".config/.profile");
+        create_input_profile_dotfile(&stowed_dotfile)?;
+
+        let expected_symlink_location = home_dir().join(".config/.profile");
+
+        create_dotfiles_symlink(&stowed_dotfile, BADM_TEST_DIR_VAR)?;
+
+        assert_eq!(fs::read_link(expected_symlink_location)?, stowed_dotfile);
+
+        teardown()?;
+        Ok(())
+    }
+
     #[test]
     fn stow_dotfiles_test() -> io::Result<()> {
-        mock()?;
+        mock_home()?;
 
         let dotfile_location = home_dir().join(".profile");
-        let mut dotfile = File::create(&dotfile_location)?;
-        dotfile.write_all(b"alias la=\"ls -la\"")?;
+        create_input_profile_dotfile(&dotfile_location)?;
 
-        stow_dotfile(BADM_TEST_DIR_VAR, &dotfile_location)?;
+        let stow_location = stow_dotfile(&dotfile_location, BADM_TEST_DIR_VAR)?;
 
-        assert!(fs::symlink_metadata(dotfile_location)?.is_file() == false);
+        assert_eq!(fs::read_link(dotfile_location)?, stow_location);
         teardown()?;
         Ok(())
     }

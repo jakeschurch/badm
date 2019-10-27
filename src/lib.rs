@@ -63,7 +63,6 @@ impl FileHandler {
 /// use badm_core::join_full_paths;
 /// use std::path::PathBuf;
 /// # use std::path;
-/// # fn main() {
 ///
 /// let path_1 = PathBuf::from("/home/ferris/.dotfiles");
 /// let path_2 = PathBuf::from("/home/ferris");
@@ -72,7 +71,6 @@ impl FileHandler {
 ///     join_full_paths(&path_1, &path_2),
 ///     Ok(PathBuf::from("/home/ferris/.dotfiles/home/ferris"))
 /// );
-/// # }
 /// ```
 // TODO: test windows root paths
 pub fn join_full_paths(
