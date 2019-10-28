@@ -1,10 +1,43 @@
 pub mod config;
 
-use crate::config::Config;
+use crate::config::{Config, BADM_DIR_VAR};
 
 use std::fs::{self, File};
-use std::io::{self, prelude::*, BufWriter};
+use std::io::{self, prelude::*, BufWriter, Error, ErrorKind};
 use std::path::{self, Path, PathBuf};
+
+/// Dotfile is removed from the set dotfiles directory and moved to its symlink location.
+/// The input can either be a dotfile's symlink path or the dotfile path itself.
+pub fn unstow_dotfile<P: AsRef<Path>>(path: P, env_var: &'static str) -> io::Result<()> {
+    let path = path.as_ref().to_path_buf();
+
+    // get src and dst paths
+    let (src_path, dst_path): (PathBuf, PathBuf) = if is_symlink(&path)? {
+        let src_path = fs::read_link(&path)?;
+        fs::remove_file(&path)?;
+
+        (src_path, path)
+    } else {
+        // check to see if file is in dotfiles dir
+        let dots_dir = Config::get_dots_dir(env_var).unwrap();
+
+        if !path.starts_with(&dots_dir) {
+            // throw error
+            let err = Error::new(
+                ErrorKind::InvalidInput,
+                "input path not located in dotfiles dir!",
+            );
+            return Err(err);
+        };
+        let dst_path = path.strip_prefix(dots_dir).unwrap().to_path_buf();
+
+        (path, dst_path)
+    };
+
+    FileHandler::move_file(src_path, dst_path)?;
+
+    Ok(())
+}
 
 /// Create symlinks in directories relative to the dotfiles' directory hierarchy
 /// for "rolling out" new configurations.
@@ -196,3 +229,10 @@ pub fn join_full_paths<P: AsRef<Path>, Q: AsRef<Path>>(
     };
     Ok(path_1.join(path_2))
 }
+
+pub fn is_symlink<P: AsRef<Path>>(location: P) -> io::Result<bool> {
+    let filetype = fs::symlink_metadata(location)?.file_type();
+
+    Ok(filetype.is_symlink())
+}
+

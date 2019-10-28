@@ -17,4 +17,4 @@ COPY . .
 # ENV RUST_BACKTRACE 1
 
 # "-Z unstable-options" is required for "--include-ignored"
-CMD ["cargo", "test", "--", "--nocapture", "-Z", "unstable-options", "--include-ignored"]
+CMD ["cargo", "test", "--", "-Z", "unstable-options", "--include-ignored"]

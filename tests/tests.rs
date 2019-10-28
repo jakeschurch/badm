@@ -1,5 +1,8 @@
 extern crate badm_core;
-use badm_core::{create_dotfiles_symlink, join_full_paths, stow_dotfile};
+use badm_core::{
+    create_dotfiles_symlink, is_symlink, join_full_paths, stow_dotfile, unstow_dotfile,
+    FileHandler,
+};
 
 extern crate dirs;
 use dirs::home_dir;
@@ -32,16 +35,16 @@ fn mock_dotfiles_dir() -> io::Result<()> {
     Ok(())
 }
 
-fn create_input_dotfile(dotfile_location: &PathBuf) -> io::Result<()> {
+fn create_input_dotfile(dotfile_path: &PathBuf) -> io::Result<()> {
     // ensure parent dir exists
-    let parent_dir = dotfile_location.parent().unwrap();
+    let parent_dir = dotfile_path.parent().unwrap();
     if !parent_dir.exists() {
         fs::create_dir_all(parent_dir)?;
     };
 
-    if !dotfile_location.exists() {
+    if !dotfile_path.exists() {
         // create .profile dotfile
-        let mut dotfile = File::create(&dotfile_location)?;
+        let mut dotfile = File::create(&dotfile_path)?;
         dotfile.write_all(b"alias la=\"ls -la\"")?;
         dotfile.sync_all().unwrap();
     }
@@ -51,21 +54,45 @@ fn create_input_dotfile(dotfile_location: &PathBuf) -> io::Result<()> {
 
 #[ignore]
 #[test]
+fn unstow_dotfile_test() -> io::Result<()> {
+    mock_dotfiles_dir()?;
+
+    // mock dotfile and corresponding symlink
+    let dotfile_path = join_full_paths(dotfiles_dir(), home_dir().unwrap())
+        .unwrap()
+        .join(".fishrc");
+    create_input_dotfile(&dotfile_path)?;
+
+    let symlink_path = home_dir().unwrap().join(".fishrc");
+
+    if !symlink_path.exists() {
+        FileHandler::create_symlink(&dotfile_path, &symlink_path)?;
+    };
+
+    unstow_dotfile(&dotfile_path, BADM_TEST_DIR_VAR)?;
+
+    assert!(!is_symlink(symlink_path)?);
+
+    Ok(())
+}
+
+#[ignore]
+#[test]
 fn stow_dotfiles_test() -> io::Result<()> {
     mock_dotfiles_dir()?;
 
-    let dotfile_location = home_dir().unwrap().join(".bash_profile");
+    let dotfile_path = home_dir().unwrap().join(".bash_profile");
 
-    create_input_dotfile(&dotfile_location)?;
+    create_input_dotfile(&dotfile_path)?;
 
-    let expected_stow_location = join_full_paths(dotfiles_dir(), home_dir().unwrap())
+    let expected_stow_path = join_full_paths(dotfiles_dir(), home_dir().unwrap())
         .unwrap()
         .join(".bash_profile");
 
-    let stow_location = stow_dotfile(&dotfile_location, BADM_TEST_DIR_VAR)?;
+    let stow_path = stow_dotfile(&dotfile_path, BADM_TEST_DIR_VAR)?;
 
-    assert_eq!(fs::read_link(dotfile_location)?, stow_location);
-    assert_eq!(expected_stow_location, stow_location);
+    assert_eq!(fs::read_link(dotfile_path)?, stow_path);
+    assert_eq!(expected_stow_path, stow_path);
 
     Ok(())
 }
@@ -82,12 +109,11 @@ fn create_dotfiles_symlink_test() -> io::Result<()> {
 
     create_input_dotfile(&stowed_dotfile)?;
 
-    let expected_symlink_location = home_dir().unwrap().join(".config/.profile");
+    let expected_symlink_path = home_dir().unwrap().join(".config/.profile");
 
     create_dotfiles_symlink(&stowed_dotfile, BADM_TEST_DIR_VAR)?;
 
-    assert_eq!(fs::read_link(expected_symlink_location)?, stowed_dotfile);
+    assert_eq!(fs::read_link(expected_symlink_path)?, stowed_dotfile);
 
     Ok(())
 }
-
