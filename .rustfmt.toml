@@ -11,7 +11,4 @@ overflow_delimited_expr=true
 use_field_init_shorthand=true
 use_try_shorthand=true
 
-report_fixme="Unnumbered"
-report_todo="Unnumbered"
-
 unstable_features=true

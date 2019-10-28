@@ -1,3 +1,4 @@
+// TODO: replace the creation of files with tempfile
 extern crate badm_core;
 use badm_core::{
     create_dotfiles_symlink, is_symlink, join_full_paths, stow_dotfile, unstow_dotfile,
@@ -60,12 +61,12 @@ fn unstow_dotfile_test() -> io::Result<()> {
     // mock dotfile and corresponding symlink
     let dotfile_path = join_full_paths(dotfiles_dir(), home_dir().unwrap())
         .unwrap()
-        .join(".fishrc");
+        .join(".fishrc_badm");
     create_input_dotfile(&dotfile_path)?;
 
-    let symlink_path = home_dir().unwrap().join(".fishrc");
+    let symlink_path = home_dir().unwrap().join(".fishrc_badm");
 
-    if !symlink_path.exists() {
+    if !&symlink_path.exists() {
         FileHandler::create_symlink(&dotfile_path, &symlink_path)?;
     };
 

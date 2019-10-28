@@ -1,10 +1,12 @@
 pub mod config;
 
-use crate::config::{Config, BADM_DIR_VAR};
+use crate::config::Config;
 
 use std::fs::{self, File};
 use std::io::{self, prelude::*, BufWriter, Error, ErrorKind};
 use std::path::{self, Path, PathBuf};
+
+// TODO: create dotfile struct
 
 /// Dotfile is removed from the set dotfiles directory and moved to its symlink location.
 /// The input can either be a dotfile's symlink path or the dotfile path itself.
@@ -29,7 +31,13 @@ pub fn unstow_dotfile<P: AsRef<Path>>(path: P, env_var: &'static str) -> io::Res
             );
             return Err(err);
         };
-        let dst_path = path.strip_prefix(dots_dir).unwrap().to_path_buf();
+        let dst_path =
+            PathBuf::from("/").join(path.strip_prefix(dots_dir).unwrap().to_path_buf());
+
+        if dst_path.exists() {
+            fs::remove_file(&dst_path)?;
+        };
+        println!("{:?}", &dst_path);
 
         (path, dst_path)
     };
@@ -183,7 +191,7 @@ impl FileHandler {
         let mut writer = BufWriter::new(dst_file);
         writer.write_all(contents.as_bytes())?;
 
-        writer.into_inner().unwrap().sync_all()?;
+        // writer.into_inner().unwrap().sync_all()?;
 
         // remove file at src location
         fs::remove_file(&src)?;
@@ -235,4 +243,3 @@ pub fn is_symlink<P: AsRef<Path>>(location: P) -> io::Result<bool> {
 
     Ok(filetype.is_symlink())
 }
-

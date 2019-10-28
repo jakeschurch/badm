@@ -20,4 +20,3 @@ impl Config {
         env::set_var(BADM_DIR_VAR, location)
     }
 }
-
