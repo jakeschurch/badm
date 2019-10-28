@@ -136,7 +136,7 @@ impl FileHandler {
         Ok(())
     }
 
-    fn move_file<P: AsRef<Path>, Q: AsRef<Path>>(src: P, dst: Q) -> io::Result<()> {
+    pub fn move_file<P: AsRef<Path>, Q: AsRef<Path>>(src: P, dst: Q) -> io::Result<()> {
         let src = src.as_ref();
         let dst = dst.as_ref();
 
