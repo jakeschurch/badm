@@ -20,3 +20,6 @@ path = "src/lib.rs"
 [[bin]]
 name = "badm"
 path = "src/main.rs"
+
+[dev-dependencies]
+dirs = "2.0.2"
