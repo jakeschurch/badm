@@ -6,11 +6,46 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
+#[macro_use]
+extern crate clap;
+
+use clap::{App, Arg};
+
 use badm_core::config::{Config, BADM_DIR_VAR};
 use badm_core::create_dotfiles_symlink;
 
 fn main() {
-    println!("Hello, world!");
+    let set_dir_subcommand = App::new("set-dir")
+        .about("set path of dotfiles directory")
+        .version("1.0")
+        .display_order(1)
+        .arg(
+            Arg::with_name("directory")
+                .help("directory to store dotfiles")
+                .required(true),
+        );
+
+    // TODO
+    // let stow_subcommand = App::new("stow");
+    // let unstow_subcommand = App::new("unstow");
+    // let remove_subcommand = App::new("remove");
+    // let rollout_subcommand = App::new("rollout");
+
+    let matches = App::new("badm")
+        .about(crate_description!())
+        .version(crate_version!())
+        .author(crate_authors!())
+        .after_help("https://github.com/jakeschurch/badm")
+        .subcommands(vec![set_dir_subcommand])
+        .get_matches();
+
+    match matches.subcommand() {
+        ("set-dir", Some(set_dir_matches)) => {
+            let value = set_dir_matches.value_of("directory").unwrap();
+            Config::set_dots_dir(value);
+        }
+        _ => unreachable!(),
+    }
 }
 
 fn rollout_dotfile_symlinks() -> io::Result<()> {
