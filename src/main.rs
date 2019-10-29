@@ -1,4 +1,6 @@
 #![allow(clippy::all)]
+// TEMP: since in large dev production
+#![allow(dead_code)]
 
 use std::fs;
 use std::io;

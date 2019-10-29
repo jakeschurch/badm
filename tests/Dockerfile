@@ -12,10 +12,7 @@ RUN USER=ferris cargo new --bin /src/badm
 WORKDIR /src/badm
 
 # Copy whole project
-COPY ./Cargo.lock ./Cargo.lock
-COPY ./Cargo.toml ./Cargo.toml
-
-COPY ./src ./src
+COPY . .
 
 # "-Z unstable-options" is required for "--include-ignored"
 CMD ["cargo", "test",  "--release", "--", "-Z", "unstable-options", "--include-ignored"]

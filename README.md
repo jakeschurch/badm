@@ -1,8 +1,11 @@
 
 # BADM
 
+![](https://github.com/jakeschurch/badm/workflows/.github/workflows/workflow.yml/badge.svg)
+
 BADM is "But Another [Dotfiles](https://en.wikipedia.org/wiki/Hidden_file_and_hidden_directory) Manager".
 
+NOTE: Windows is currently not supported as of this time.
 
 ## How it Works
 
