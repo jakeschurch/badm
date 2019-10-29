@@ -1,3 +1,5 @@
+// TODO: create integration tests for main
+
 #![allow(clippy::all)]
 // TEMP: since in large dev production
 #![allow(dead_code)]
@@ -14,7 +16,7 @@ use clap::{App, Arg};
 use badm_core::config::{Config, BADM_DIR_VAR};
 use badm_core::create_dotfiles_symlink;
 
-fn main() {
+fn main() -> io::Result<()> {
     let set_dir_subcommand = App::new("set-dir")
         .about("set path of dotfiles directory")
         .version("1.0")
@@ -42,10 +44,11 @@ fn main() {
     match matches.subcommand() {
         ("set-dir", Some(set_dir_matches)) => {
             let value = set_dir_matches.value_of("directory").unwrap();
-            Config::set_dots_dir(value);
+            Config::set_dots_dir(value)?;
         }
         _ => unreachable!(),
     }
+    Ok(())
 }
 
 fn rollout_dotfile_symlinks() -> io::Result<()> {
