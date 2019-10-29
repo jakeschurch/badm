@@ -1,6 +1,6 @@
 [package]
-name = "yadm"
-version = "0.1.0"
+name = "badm"
+version = "0.2.0"
 authors = ["Jake Schurch <jakeschurch@gmail.com>"]
 edition = "2018"
 repository = "https://github.com/jakeschurch/badm"
@@ -13,4 +13,14 @@ is-it-maintained-issue-resolution = { repository = "jakeschurch/badm" }
 is-it-maintained-open-issues = { repository = "jakeschurch/badm" }
 maintenance = { status = "actively-developed" }
 
-[dependencies]
+[lib]
+name = "badm_core"
+path = "src/lib.rs"
+
+[[bin]]
+name = "badm"
+path = "src/main.rs"
+
+[dev-dependencies]
+dirs = "2.0.2"
+tempfile = "3.1.0"
