@@ -1,11 +1,11 @@
 #![allow(clippy::all)]
 
 use std::fs;
-use std::io::{self, Error, ErrorKind};
+use std::io;
 use std::path::{Path, PathBuf};
 
 use badm_core::config::{Config, BADM_DIR_VAR};
-use badm_core::{create_dotfiles_symlink, is_symlink, unstow_dotfile, FileHandler};
+use badm_core::create_dotfiles_symlink;
 
 fn main() {
     println!("Hello, world!");
@@ -13,7 +13,6 @@ fn main() {
 
 fn rollout_dotfile_symlinks() -> io::Result<()> {
     // find dotfiles home
-    // TODO(#1): handle panic
     let dots_dir = Config::get_dots_dir(BADM_DIR_VAR).unwrap();
 
     // iterate through and create vector of filenames

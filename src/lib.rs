@@ -81,16 +81,20 @@ pub fn unstow_dotfile<P: AsRef<Path>>(path: P, env_var: &'static str) -> io::Res
 ///
 /// Directories to replicate the stored dotfile's directory structure will be created if
 /// not found.
-pub fn create_dotfiles_symlink(src: &PathBuf, env_var: &'static str) -> io::Result<()> {
+pub fn create_dotfiles_symlink<P: AsRef<Path>>(
+    src: P,
+    env_var: &'static str,
+) -> io::Result<()> {
     let dots_dir = Config::get_dots_dir(env_var).unwrap();
 
     let dst_symlink = PathBuf::from("/").join(
-        src.strip_prefix(dots_dir)
+        src.as_ref()
+            .strip_prefix(dots_dir)
             .expect("Not able to create destination path"),
     );
 
     // if symlink already exists and points to src file, early return
-    if dst_symlink.exists() && fs::read_link(&dst_symlink)? == *src {
+    if dst_symlink.exists() && fs::read_link(&dst_symlink)? == src.as_ref() {
         return Ok(());
     };
 
@@ -106,7 +110,10 @@ pub fn create_dotfiles_symlink(src: &PathBuf, env_var: &'static str) -> io::Resu
 //     - recursive flag?
 //     - glob patterns?
 // TEMP: env_var input argument will go away when we convert to toml config
-pub fn stow_dotfile(src: &PathBuf, env_var: &'static str) -> io::Result<PathBuf> {
+pub fn stow_dotfile<P: AsRef<Path>>(
+    src: P,
+    env_var: &'static str,
+) -> io::Result<PathBuf> {
     // create destination path
     let dots_dir = match Config::get_dots_dir(env_var) {
         Some(dir) => dir,
@@ -120,10 +127,10 @@ pub fn stow_dotfile(src: &PathBuf, env_var: &'static str) -> io::Result<PathBuf>
         }
     };
 
-    let dst_path = join_full_paths(dots_dir, src).unwrap();
+    let dst_path = join_full_paths(dots_dir, &src).unwrap();
 
     // if symlink already exists and points to src file, early return
-    if dst_path.exists() && fs::read_link(&dst_path)? == *src {
+    if dst_path.exists() && fs::read_link(&dst_path)? == src.as_ref() {
         return Ok(dst_path);
     };
 
@@ -135,7 +142,7 @@ pub fn stow_dotfile(src: &PathBuf, env_var: &'static str) -> io::Result<PathBuf>
     };
 
     // move dotfile to dotfiles directory
-    FileHandler::store_file(&src, &dst_path)?;
+    FileHandler::store_file(src, &dst_path)?;
 
     Ok(dst_path)
 }
@@ -160,6 +167,7 @@ impl FileHandler {
     ///
     /// For Unix platforms, std::os::unix::fs::symlink is used to create
     /// symlinks. For Windows, std::os::windows::fs::symlink_file is used.
+    // TODO|BUGFIX: ensure or throw error when dst parent does not exist
     pub fn create_symlink<P: AsRef<Path>, Q: AsRef<Path>>(
         src: P,
         dst: Q,
