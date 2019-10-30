@@ -1,12 +1,21 @@
 
 # BADM
 
+<p align="center">
+  <a href="https://github.com/jakeschurch/badm/actions"
+    ><img
+      src="https://github.com/jakeschurch/badm/workflows/Main%20Workflow/badge.svg"
+      alt="GitHub Actions workflow status"
+  /></a>
+</p>
+
 BADM is "But Another [Dotfiles](https://en.wikipedia.org/wiki/Hidden_file_and_hidden_directory) Manager".
 
+NOTE: Windows is currently not supported as of this time.
 
 ## How it Works
 
-BADM moves files to the set dotfiles directory, replicating the file structure of the file's original location, and then replacing the file at the original location with a symlink to the stored dotfile..
+BADM moves files to the set dotfiles directory, replicating the file structure of the file's original location, and then replacing the file at the original location with a symlink to the stored dotfile.
 
 
 ### Example Workflow

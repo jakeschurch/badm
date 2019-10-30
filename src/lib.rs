@@ -1,6 +1,8 @@
-pub mod config;
+#![allow(dead_code)]
 
-use crate::config::Config;
+pub use crate::config::Config;
+
+mod config;
 
 use std::fs::{self, File};
 use std::io::{self, prelude::*, BufWriter, Error, ErrorKind};
@@ -10,7 +12,7 @@ use std::path::{self, Path, PathBuf};
 
 /// Dotfile is removed from the set dotfiles directory and moved to its symlink location.
 /// The input can either be a dotfile's symlink path or the dotfile path itself.
-pub fn unstow_dotfile<P: AsRef<Path>>(path: P, env_var: &'static str) -> io::Result<()> {
+pub fn unstow_dotfile<P: AsRef<Path>>(path: P) -> io::Result<()> {
     let path = path.as_ref().to_path_buf();
 
     // get src and dst paths
@@ -21,7 +23,7 @@ pub fn unstow_dotfile<P: AsRef<Path>>(path: P, env_var: &'static str) -> io::Res
         (src_path, path)
     } else {
         // check to see if file is in dotfiles dir
-        let dots_dir = Config::get_dots_dir(env_var).unwrap();
+        let dots_dir = Config::get_dots_dir().unwrap();
 
         if !path.starts_with(&dots_dir) {
             // throw error
@@ -81,11 +83,9 @@ pub fn unstow_dotfile<P: AsRef<Path>>(path: P, env_var: &'static str) -> io::Res
 ///
 /// Directories to replicate the stored dotfile's directory structure will be created if
 /// not found.
-pub fn create_dotfiles_symlink<P: AsRef<Path>>(
-    src: P,
-    env_var: &'static str,
-) -> io::Result<()> {
-    let dots_dir = Config::get_dots_dir(env_var).unwrap();
+pub fn create_dotfile_symlink<P: AsRef<Path>>(src: P) -> io::Result<()> {
+    let dots_dir = Config::get_dots_dir().unwrap();
+    println!("{:?}", dots_dir);
 
     let dst_symlink = PathBuf::from("/").join(
         src.as_ref()
@@ -109,13 +109,9 @@ pub fn create_dotfiles_symlink<P: AsRef<Path>>(
 // REVIEW:
 //     - recursive flag?
 //     - glob patterns?
-// TEMP: env_var input argument will go away when we convert to toml config
-pub fn stow_dotfile<P: AsRef<Path>>(
-    src: P,
-    env_var: &'static str,
-) -> io::Result<PathBuf> {
+pub fn stow_dotfile<P: AsRef<Path>>(src: P) -> io::Result<PathBuf> {
     // create destination path
-    let dots_dir = match Config::get_dots_dir(env_var) {
+    let dots_dir = match Config::get_dots_dir() {
         Some(dir) => dir,
         None => {
             let err = io::Error::new(
