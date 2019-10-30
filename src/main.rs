@@ -13,8 +13,7 @@ extern crate clap;
 
 use clap::{App, Arg};
 
-use badm_core::config::{Config, BADM_DIR_VAR};
-use badm_core::create_dotfiles_symlink;
+use badm_core::{create_dotfile_symlink, Config};
 
 fn main() -> io::Result<()> {
     let set_dir_subcommand = App::new("set-dir")
@@ -31,7 +30,7 @@ fn main() -> io::Result<()> {
     // let stow_subcommand = App::new("stow");
     // let unstow_subcommand = App::new("unstow");
     // let remove_subcommand = App::new("remove");
-    // let rollout_subcommand = App::new("rollout");
+    // let deploy_subcommand = App::new("deploy");
 
     let matches = App::new("badm")
         .about(crate_description!())
@@ -51,16 +50,17 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
-fn rollout_dotfile_symlinks() -> io::Result<()> {
-    // find dotfiles home
-    let dots_dir = Config::get_dots_dir(BADM_DIR_VAR).unwrap();
+fn deploy_dotfile_symlinks() -> io::Result<()> {
+    // find dotfiles dir
+    // TODO: Introduce custom errors
+    let dots_dir = Config::get_dots_dir().unwrap();
 
     // iterate through and create vector of filenames
     let entries = DirectoryScanner::new().get_entries(dots_dir.as_ref())?;
 
-    // rollout each symlink
+    // deploy each symlink
     for entry in entries.into_iter() {
-        create_dotfiles_symlink(&entry, BADM_DIR_VAR)?;
+        create_dotfile_symlink(&entry)?;
     }
 
     Ok(())
