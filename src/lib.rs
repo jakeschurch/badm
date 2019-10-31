@@ -10,12 +10,19 @@ use std::fs::{self, File};
 use std::io::{self, prelude::*, BufWriter, Error, ErrorKind};
 use std::path::{self, Path, PathBuf};
 
+pub fn is_symlink(path: &Path) -> io::Result<bool> {
+    let filetype = fs::symlink_metadata(path)?.file_type();
+
+    Ok(filetype.is_symlink())
+}
+
 // TODO: create dotfile struct
+// TODO: create commands file
 
 /// Dotfile is removed from the set dotfiles directory and moved to its symlink location.
 /// The input can either be a dotfile's symlink path or the dotfile path itself.
-pub fn unstow_dotfile<P: AsRef<Path>>(path: P) -> io::Result<()> {
-    let path = path.as_ref().to_path_buf();
+pub fn unstow_dotfile(path: &Path) -> io::Result<()> {
+    let path = path.to_path_buf();
 
     // get src and dst paths
     let (src_path, dst_path): (PathBuf, PathBuf) = if is_symlink(&path)? {
@@ -24,6 +31,8 @@ pub fn unstow_dotfile<P: AsRef<Path>>(path: P) -> io::Result<()> {
 
         (src_path, path)
     } else {
+        // TODO: lift this out to is_dotfile fn
+
         // check to see if file is in dotfiles dir
         let dots_dir = Config::get_dots_dir().unwrap();
 
@@ -41,12 +50,11 @@ pub fn unstow_dotfile<P: AsRef<Path>>(path: P) -> io::Result<()> {
         if dst_path.exists() {
             fs::remove_file(&dst_path)?;
         };
-        println!("{:?}", &dst_path);
 
         (path, dst_path)
     };
 
-    FileHandler::move_file(src_path, dst_path)?;
+    FileHandler::move_file(&src_path, &dst_path)?;
 
     Ok(())
 }
@@ -85,18 +93,17 @@ pub fn unstow_dotfile<P: AsRef<Path>>(path: P) -> io::Result<()> {
 ///
 /// Directories to replicate the stored dotfile's directory structure will be created if
 /// not found.
-pub fn create_dotfile_symlink<P: AsRef<Path>>(src: P) -> io::Result<()> {
+// REVIEW: not enough checks - ensure valid entry
+pub fn create_dotfile_symlink(src: &Path) -> io::Result<()> {
     let dots_dir = Config::get_dots_dir().unwrap();
-    println!("{:?}", dots_dir);
 
     let dst_symlink = PathBuf::from("/").join(
-        src.as_ref()
-            .strip_prefix(dots_dir)
+        src.strip_prefix(dots_dir)
             .expect("Not able to create destination path"),
     );
 
     // if symlink already exists and points to src file, early return
-    if dst_symlink.exists() && fs::read_link(&dst_symlink)? == src.as_ref() {
+    if dst_symlink.exists() && fs::read_link(&dst_symlink)? == src {
         return Ok(());
     };
 
@@ -111,7 +118,7 @@ pub fn create_dotfile_symlink<P: AsRef<Path>>(src: P) -> io::Result<()> {
 // REVIEW:
 //     - recursive flag?
 //     - glob patterns?
-pub fn stow_dotfile<P: AsRef<Path>>(src: P) -> io::Result<PathBuf> {
+pub fn stow_dotfile(path: &Path) -> io::Result<PathBuf> {
     // create destination path
     let dots_dir = match Config::get_dots_dir() {
         Some(dir) => dir,
@@ -119,16 +126,22 @@ pub fn stow_dotfile<P: AsRef<Path>>(src: P) -> io::Result<PathBuf> {
             let err = io::Error::new(
                 io::ErrorKind::NotFound,
                 "Not able to complete operation because BADM_DIR was not set. Please \
-                 run `badm set-home=<DIR> first.`",
+                 run `badm set-dir=<DIR> first.`",
             );
             return Err(err);
         }
     };
 
-    let dst_path = join_full_paths(dots_dir, &src).unwrap();
+    let path = if path.is_relative() {
+        fs::canonicalize(path)?
+    } else {
+        path.to_path_buf()
+    };
+
+    let dst_path = join_full_paths(dots_dir, &path).unwrap();
 
     // if symlink already exists and points to src file, early return
-    if dst_path.exists() && fs::read_link(&dst_path)? == src.as_ref() {
+    if dst_path.exists() && fs::read_link(&dst_path)? == path {
         return Ok(dst_path);
     };
 
@@ -140,7 +153,7 @@ pub fn stow_dotfile<P: AsRef<Path>>(src: P) -> io::Result<PathBuf> {
     };
 
     // move dotfile to dotfiles directory
-    FileHandler::store_file(src, &dst_path)?;
+    FileHandler::store_file(&path, &dst_path)?;
 
     Ok(dst_path)
 }
@@ -150,11 +163,8 @@ pub struct FileHandler;
 impl FileHandler {
     /// Store a file in the dotfiles directory, create a symlink at the original
     /// source of the stowed file.
-    pub fn store_file<P: AsRef<Path>, Q: AsRef<Path>>(src: P, dst: Q) -> io::Result<()> {
-        let src = src.as_ref();
-        let dst = dst.as_ref();
-
-        FileHandler::move_file(&src, &dst)?;
+    pub fn store_file(src: &Path, dst: &Path) -> io::Result<()> {
+        FileHandler::move_file(src, dst)?;
 
         FileHandler::create_symlink(dst, src)?;
 
@@ -166,13 +176,7 @@ impl FileHandler {
     /// For Unix platforms, std::os::unix::fs::symlink is used to create
     /// symlinks. For Windows, std::os::windows::fs::symlink_file is used.
     // TODO|BUGFIX: ensure or throw error when dst parent does not exist
-    pub fn create_symlink<P: AsRef<Path>, Q: AsRef<Path>>(
-        src: P,
-        dst: Q,
-    ) -> io::Result<()> {
-        let src = src.as_ref();
-        let dst = dst.as_ref();
-
+    pub fn create_symlink(src: &Path, dst: &Path) -> io::Result<()> {
         #[cfg(not(target_os = "windows"))]
         use std::os::unix::fs::symlink;
 
@@ -183,10 +187,7 @@ impl FileHandler {
         Ok(())
     }
 
-    pub fn move_file<P: AsRef<Path>, Q: AsRef<Path>>(src: P, dst: Q) -> io::Result<()> {
-        let src = src.as_ref();
-        let dst = dst.as_ref();
-
+    pub fn move_file(src: &Path, dst: &Path) -> io::Result<()> {
         // read file to String
         let mut contents = String::new();
         let mut f = File::open(src)?;
@@ -196,8 +197,6 @@ impl FileHandler {
         let dst_file = File::create(dst)?;
         let mut writer = BufWriter::new(dst_file);
         writer.write_all(contents.as_bytes())?;
-
-        // writer.into_inner().unwrap().sync_all()?;
 
         // remove file at src location
         fs::remove_file(&src)?;
@@ -230,13 +229,10 @@ impl FileHandler {
 /// );
 /// ```
 // TODO: test windows root paths
-pub fn join_full_paths<P: AsRef<Path>, Q: AsRef<Path>>(
-    path_1: P,
-    path_2: Q,
+pub fn join_full_paths(
+    path_1: &Path,
+    path_2: &Path,
 ) -> Result<PathBuf, path::StripPrefixError> {
-    let path_1 = path_1.as_ref();
-    let path_2 = path_2.as_ref();
-
     if path_2.has_root() && cfg!(target_family = "unix") {
         let path_2 = path_2.strip_prefix("/")?;
         return Ok(path_1.join(path_2));
@@ -244,8 +240,3 @@ pub fn join_full_paths<P: AsRef<Path>, Q: AsRef<Path>>(
     Ok(path_1.join(path_2))
 }
 
-pub fn is_symlink<P: AsRef<Path>>(location: P) -> io::Result<bool> {
-    let filetype = fs::symlink_metadata(location)?.file_type();
-
-    Ok(filetype.is_symlink())
-}

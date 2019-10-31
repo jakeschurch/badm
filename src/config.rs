@@ -8,18 +8,16 @@ use dirs::{config_dir, home_dir};
 use serde_derive::{Deserialize, Serialize};
 use toml;
 
-// TODO: create a fs_utils file
+// TODO: create a util/paths mod
 
-pub fn read_file<P: AsRef<Path>>(path: P) -> io::Result<String> {
-    let mut file = File::open(path.as_ref())?;
+pub fn read_file(path: &Path) -> io::Result<String> {
+    let mut file = File::open(path)?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
     Ok(contents)
 }
 
-pub fn expand_tilde<P: AsRef<Path>>(path: P) -> io::Result<PathBuf> {
-    let mut path = path.as_ref();
-
+pub fn expand_tilde(path: &Path) -> io::Result<PathBuf> {
     if !path.starts_with("~") {
         return Ok(path.to_path_buf());
     };
@@ -63,7 +61,7 @@ impl Config {
 
     pub fn get_dots_dir() -> Option<PathBuf> {
         if let Some(config_path) = Config::get_config_file() {
-            let toml = read_file(config_path).unwrap();
+            let toml = read_file(&config_path).unwrap();
 
             match Config::from_str(&toml) {
                 Ok(config) => Some(config.directory),
@@ -109,9 +107,8 @@ impl Config {
     }
 
     // REVIEW: how should we handle if a dotfiles directory is already set?
-    pub fn set_dots_dir<P: AsRef<Path>>(path: P) -> io::Result<()> {
-        let path = path.as_ref();
-
+    pub fn set_dots_dir(path: &Path) -> io::Result<()> {
+        // TODO: lift this to fn normalize_path
         let dir_path = if path.starts_with("~") {
             expand_tilde(path)?
         } else if path.is_relative() {
@@ -145,7 +142,7 @@ mod tests {
 
         // Load config into Config struct to ensure directory set is correct
         let expected_config_path = home_dir.join(".badm.toml");
-        let toml = read_file(expected_config_path)?;
+        let toml = read_file(&expected_config_path)?;
 
         let config: Config = toml::from_str(&toml)?;
         assert_eq!(config.directory, dots_dir);

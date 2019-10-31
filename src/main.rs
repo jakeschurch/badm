@@ -4,6 +4,7 @@
 // TEMP: since in large dev production
 #![allow(dead_code)]
 
+use std::env;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -11,11 +12,16 @@ use std::path::{Path, PathBuf};
 #[macro_use]
 extern crate clap;
 
-use clap::{App, Arg};
+use clap::{App, Arg, Values};
 
-use badm_core::{create_dotfile_symlink, Config};
+use badm_core::{create_dotfile_symlink, is_symlink, stow_dotfile, Config};
 
 fn main() -> io::Result<()> {
+    // TODO
+    // let unstow_subcommand = App::new("unstow");
+    // let remove_subcommand = App::new("remove");
+    // let deploy_subcommand = App::new("deploy");
+
     let set_dir_subcommand = App::new("set-dir")
         .about("set path of dotfiles directory")
         .version("1.0")
@@ -26,26 +32,61 @@ fn main() -> io::Result<()> {
                 .required(true),
         );
 
-    // TODO
-    // let stow_subcommand = App::new("stow");
-    // let unstow_subcommand = App::new("unstow");
-    // let remove_subcommand = App::new("remove");
-    // let deploy_subcommand = App::new("deploy");
+    let stow_subcommand = App::new("stow")
+        .about("store input files in the dotfiles directory, and replace the file's original path with a symlink")
+        .version("0.1")
+        .display_order(2)
+        .arg(
+            Arg::with_name("files")
+                .help("path of the file/files to be stored in the dotfiles directory")
+                .required(true)
+                .multiple(true),
+        );
 
     let matches = App::new("badm")
         .about(crate_description!())
         .version(crate_version!())
         .author(crate_authors!())
         .after_help("https://github.com/jakeschurch/badm")
-        .subcommands(vec![set_dir_subcommand])
+        .subcommands(vec![set_dir_subcommand, stow_subcommand])
         .get_matches();
 
     match matches.subcommand() {
         ("set-dir", Some(set_dir_matches)) => {
-            let value = set_dir_matches.value_of("directory").unwrap();
-            Config::set_dots_dir(value)?;
+            let dir_path = set_dir_matches.value_of("directory").unwrap();
+            Config::set_dots_dir(dir_path)?;
+        }
+        ("stow", Some(stow_matches)) => {
+            let input_paths = stow_matches.values_of("files").unwrap();
+            stow(input_paths)?
         }
         _ => unreachable!(),
+    }
+    Ok(())
+}
+
+// REVIEW|TODO: is this needed?
+fn normalize_path(path: &Path) -> io::Result<PathBuf> {
+    if path.is_absolute() {
+        return Ok(path.to_path_buf());
+    };
+
+    // path is relative
+    let path = fs::canonicalize(path)?;
+
+    Ok(path.to_path_buf())
+}
+
+fn stow(values: Values) -> io::Result<()> {
+    for value in values.into_iter() {
+        let path = PathBuf::from(value);
+
+        let path = normalize_path(&path)?;
+
+        // TODO: push down is symlink and return error
+        if path.is_file() && !is_symlink(&path)? {
+            stow_dotfile(&path)?;
+        };
     }
     Ok(())
 }
