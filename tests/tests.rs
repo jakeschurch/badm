@@ -12,7 +12,7 @@ fn dotfiles_dir() -> PathBuf {
 }
 
 fn stow_dir() -> PathBuf {
-    badm_core::join_full_paths(&dotfiles_dir(), &home_dir().unwrap()).unwrap()
+    badm_core::paths::join_full_paths(&dotfiles_dir(), &home_dir().unwrap()).unwrap()
 }
 
 fn mock_config_file() -> io::Result<()> {
@@ -57,7 +57,7 @@ fn unstow_dotfile_test() -> io::Result<()> {
 
     badm_core::unstow_dotfile(dotfile_path)?;
 
-    assert!(!badm_core::is_symlink(&symlink_path)?);
+    assert!(!badm_core::paths::is_symlink(&symlink_path)?);
 
     Ok(())
 }

@@ -14,7 +14,8 @@ extern crate clap;
 
 use clap::{App, Arg, Values};
 
-use badm_core::{create_dotfile_symlink, is_symlink, stow_dotfile, Config};
+use badm_core::paths::{is_symlink, normalize_path};
+use badm_core::{create_dotfile_symlink, stow_dotfile, Config};
 
 fn main() -> io::Result<()> {
     // TODO
@@ -65,16 +66,6 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
-// REVIEW|TODO: is this needed?
-fn normalize_path(path: &Path) -> io::Result<PathBuf> {
-    if path.is_absolute() {
-        return Ok(path.to_path_buf());
-    };
-
-    // path is relative
-    let path = fs::canonicalize(path)?;
-
-    Ok(path.to_path_buf())
 }
 
 fn stow(values: Values) -> io::Result<()> {
