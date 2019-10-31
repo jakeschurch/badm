@@ -14,12 +14,12 @@ extern crate clap;
 
 use clap::{App, Arg, Values};
 
-use badm_core::{create_dotfile_symlink, is_symlink, stow_dotfile, Config};
+use badm_core::paths::{is_symlink, normalize_path};
+use badm_core::{create_dotfile_symlink, stow_dotfile, Config};
 
 fn main() -> io::Result<()> {
     // TODO
     // let unstow_subcommand = App::new("unstow");
-    // let remove_subcommand = App::new("remove");
     // let deploy_subcommand = App::new("deploy");
 
     let set_dir_subcommand = App::new("set-dir")
@@ -54,7 +54,7 @@ fn main() -> io::Result<()> {
     match matches.subcommand() {
         ("set-dir", Some(set_dir_matches)) => {
             let dir_path = set_dir_matches.value_of("directory").unwrap();
-            Config::set_dots_dir(dir_path)?;
+            set_dir(dir_path)?
         }
         ("stow", Some(stow_matches)) => {
             let input_paths = stow_matches.values_of("files").unwrap();
@@ -65,16 +65,9 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
-// REVIEW|TODO: is this needed?
-fn normalize_path(path: &Path) -> io::Result<PathBuf> {
-    if path.is_absolute() {
-        return Ok(path.to_path_buf());
-    };
-
-    // path is relative
-    let path = fs::canonicalize(path)?;
-
-    Ok(path.to_path_buf())
+fn set_dir<P: AsRef<Path>>(path: P) -> io::Result<()> {
+    let _ = Config::set_dots_dir(path.as_ref())?;
+    Ok(())
 }
 
 fn stow(values: Values) -> io::Result<()> {

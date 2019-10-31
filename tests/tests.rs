@@ -12,14 +12,16 @@ fn dotfiles_dir() -> PathBuf {
 }
 
 fn stow_dir() -> PathBuf {
-    badm_core::join_full_paths(dotfiles_dir(), home_dir().unwrap()).unwrap()
+    badm_core::paths::join_full_paths(&dotfiles_dir(), &home_dir().unwrap()).unwrap()
 }
 
 fn mock_config_file() -> io::Result<()> {
-    let config = Config::new(dotfiles_dir());
-    config.write_toml_config()?;
-
-    Ok(())
+    if dotfiles_dir().join(".badm.toml").exists() {
+        Ok(())
+    } else {
+        let config = Config::new(dotfiles_dir());
+        config.write_toml_config()
+    }
 }
 
 fn mock_dotfile<P: AsRef<Path>>(parent_dir: P) -> io::Result<PathBuf> {
@@ -36,7 +38,7 @@ fn mock_dotfile<P: AsRef<Path>>(parent_dir: P) -> io::Result<PathBuf> {
 
     let dotfile = builder.rand_bytes(6).tempfile_in(parent_path)?;
 
-    let dotfile_path = dotfile.into_temp_path().keep()?;
+    let (_, dotfile_path) = dotfile.keep()?;
 
     Ok(dotfile_path)
 }
@@ -55,9 +57,9 @@ fn unstow_dotfile_test() -> io::Result<()> {
     fs::create_dir_all(symlink_path.parent().unwrap())?;
     FileHandler::create_symlink(&dotfile_path, &symlink_path)?;
 
-    badm_core::unstow_dotfile(&dotfile_path)?;
+    badm_core::unstow_dotfile(dotfile_path)?;
 
-    assert!(!badm_core::is_symlink(symlink_path)?);
+    assert!(!badm_core::paths::is_symlink(&symlink_path)?);
 
     Ok(())
 }

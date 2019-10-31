@@ -2,26 +2,23 @@
 
 #![allow(dead_code)]
 
+mod config;
+pub mod paths;
+
 pub use crate::config::Config;
 
-mod config;
+use crate::paths::{is_symlink, join_full_paths};
 
 use std::fs::{self, File};
 use std::io::{self, prelude::*, BufWriter, Error, ErrorKind};
-use std::path::{self, Path, PathBuf};
-
-pub fn is_symlink(path: &Path) -> io::Result<bool> {
-    let filetype = fs::symlink_metadata(path)?.file_type();
-
-    Ok(filetype.is_symlink())
-}
+use std::path::{Path, PathBuf};
 
 // TODO: create dotfile struct
 // TODO: create commands file
 
 /// Dotfile is removed from the set dotfiles directory and moved to its symlink location.
 /// The input can either be a dotfile's symlink path or the dotfile path itself.
-pub fn unstow_dotfile(path: &Path) -> io::Result<()> {
+pub fn unstow_dotfile(path: PathBuf) -> io::Result<()> {
     let path = path.to_path_buf();
 
     // get src and dst paths
@@ -132,13 +129,14 @@ pub fn stow_dotfile(path: &Path) -> io::Result<PathBuf> {
         }
     };
 
+    // TODO: substitute for normalize_path
     let path = if path.is_relative() {
         fs::canonicalize(path)?
     } else {
         path.to_path_buf()
     };
 
-    let dst_path = join_full_paths(dots_dir, &path).unwrap();
+    let dst_path = join_full_paths(&dots_dir, &path).unwrap();
 
     // if symlink already exists and points to src file, early return
     if dst_path.exists() && fs::read_link(&dst_path)? == path {
@@ -203,40 +201,5 @@ impl FileHandler {
 
         Ok(())
     }
-}
-
-/// Joins two full paths together.
-/// If path is unix and second path argument contains root directory, it is stripped.
-///
-/// This behavior is an anti-use case of [`PathBuf::join`], but is valid for the need to
-/// replicate directory paths containing root within others.
-///
-/// [`PathBuf`::join]: struct.PathBuf.html#method.join
-///
-/// # Examples
-///
-/// ```
-/// use badm_core::join_full_paths;
-/// use std::path::PathBuf;
-/// # use std::path;
-///
-/// let path_1 = PathBuf::from("/home/ferris/.dotfiles");
-/// let path_2 = PathBuf::from("/home/ferris");
-///
-/// assert_eq!(
-///     join_full_paths(&path_1, &path_2),
-///     Ok(PathBuf::from("/home/ferris/.dotfiles/home/ferris"))
-/// );
-/// ```
-// TODO: test windows root paths
-pub fn join_full_paths(
-    path_1: &Path,
-    path_2: &Path,
-) -> Result<PathBuf, path::StripPrefixError> {
-    if path_2.has_root() && cfg!(target_family = "unix") {
-        let path_2 = path_2.strip_prefix("/")?;
-        return Ok(path_1.join(path_2));
-    };
-    Ok(path_1.join(path_2))
 }
 

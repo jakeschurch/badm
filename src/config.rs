@@ -8,27 +8,6 @@ use dirs::{config_dir, home_dir};
 use serde_derive::{Deserialize, Serialize};
 use toml;
 
-// TODO: create a util/paths mod
-
-pub fn read_file(path: &Path) -> io::Result<String> {
-    let mut file = File::open(path)?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
-    Ok(contents)
-}
-
-pub fn expand_tilde(path: &Path) -> io::Result<PathBuf> {
-    if !path.starts_with("~") {
-        return Ok(path.to_path_buf());
-    };
-
-    path = path
-        .strip_prefix("~")
-        .expect("Could not strip tilde from path!");
-
-    Ok(home_dir().unwrap().join(path))
-}
-
 #[derive(Serialize, Deserialize)]
 pub struct Config {
     pub directory: PathBuf,
@@ -61,7 +40,7 @@ impl Config {
 
     pub fn get_dots_dir() -> Option<PathBuf> {
         if let Some(config_path) = Config::get_config_file() {
-            let toml = read_file(&config_path).unwrap();
+            let toml = crate::paths::read_file(&config_path).unwrap();
 
             match Config::from_str(&toml) {
                 Ok(config) => Some(config.directory),
@@ -102,22 +81,14 @@ impl Config {
         let mut file = File::create(&config_file_path)?;
 
         file.write_all(&toml.into_bytes())?;
+        file.sync_data()?;
 
         Ok(())
     }
 
     // REVIEW: how should we handle if a dotfiles directory is already set?
     pub fn set_dots_dir(path: &Path) -> io::Result<()> {
-        // TODO: lift this to fn normalize_path
-        let dir_path = if path.starts_with("~") {
-            expand_tilde(path)?
-        } else if path.is_relative() {
-            path.canonicalize()?
-        } else {
-            path.to_path_buf()
-        };
-
-        let config = Config::new(dir_path);
+        let config = Config::new(path.to_path_buf());
 
         config.write_toml_config()
     }
@@ -127,7 +98,6 @@ impl Config {
 mod tests {
     use super::*;
     use std::fs;
-    use tempfile::tempdir;
 
     #[ignore]
     #[test]
@@ -136,14 +106,12 @@ mod tests {
         if !home_dir.exists() {
             fs::create_dir_all(&home_dir)?;
         }
-
-        let dots_dir = tempdir()?.into_path();
+        let dots_dir = home_dir.join(".dotfiles/.badm.toml");
         Config::set_dots_dir(&dots_dir)?;
 
-        // Load config into Config struct to ensure directory set is correct
-        let expected_config_path = home_dir.join(".badm.toml");
-        let toml = read_file(&expected_config_path)?;
+        let toml = crate::paths::read_file(&home_dir.join(".badm.toml"))?;
 
+        // Read file contents
         let config: Config = toml::from_str(&toml)?;
         assert_eq!(config.directory, dots_dir);
 
@@ -153,7 +121,7 @@ mod tests {
     #[ignore]
     #[test]
     fn write_toml_config_test() -> io::Result<()> {
-        let dir = tempdir()?.into_path();
+        let dir = home_dir().unwrap().join(".dotfiles");
         let config = Config::new(dir);
         config.write_toml_config()?;
 
