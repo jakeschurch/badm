@@ -65,9 +65,8 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
-fn normalize_path<P: AsRef<Path>>(path: P) -> io::Result<PathBuf> {
-    let path = path.as_ref();
-
+// REVIEW|TODO: is this needed?
+fn normalize_path(path: &Path) -> io::Result<PathBuf> {
     if path.is_absolute() {
         return Ok(path.to_path_buf());
     };
@@ -82,11 +81,11 @@ fn stow(values: Values) -> io::Result<()> {
     for value in values.into_iter() {
         let path = PathBuf::from(value);
 
-        let path = normalize_path(path)?;
+        let path = normalize_path(&path)?;
 
         // TODO: push down is symlink and return error
         if path.is_file() && !is_symlink(&path)? {
-            stow_dotfile(path)?;
+            stow_dotfile(&path)?;
         };
     }
     Ok(())
