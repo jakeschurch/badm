@@ -21,7 +21,7 @@ pub fn is_symlink(path: &Path) -> io::Result<bool> {
 
 /// Dotfile is removed from the set dotfiles directory and moved to its symlink location.
 /// The input can either be a dotfile's symlink path or the dotfile path itself.
-pub fn unstow_dotfile(path: &Path) -> io::Result<()> {
+pub fn unstow_dotfile(path: PathBuf) -> io::Result<()> {
     let path = path.to_path_buf();
 
     // get src and dst paths
@@ -132,13 +132,14 @@ pub fn stow_dotfile(path: &Path) -> io::Result<PathBuf> {
         }
     };
 
+    // TODO: substitute for normalize_path
     let path = if path.is_relative() {
         fs::canonicalize(path)?
     } else {
         path.to_path_buf()
     };
 
-    let dst_path = join_full_paths(dots_dir, &path).unwrap();
+    let dst_path = join_full_paths(&dots_dir, &path).unwrap();
 
     // if symlink already exists and points to src file, early return
     if dst_path.exists() && fs::read_link(&dst_path)? == path {

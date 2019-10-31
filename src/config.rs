@@ -102,6 +102,7 @@ impl Config {
         let mut file = File::create(&config_file_path)?;
 
         file.write_all(&toml.into_bytes())?;
+        file.sync_all()?;
 
         Ok(())
     }
@@ -110,7 +111,7 @@ impl Config {
     pub fn set_dots_dir(path: &Path) -> io::Result<()> {
         // TODO: lift this to fn normalize_path
         let dir_path = if path.starts_with("~") {
-            expand_tilde(path)?
+            expand_tilde(path.to_path_buf())?
         } else if path.is_relative() {
             path.canonicalize()?
         } else {
