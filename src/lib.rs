@@ -1,3 +1,5 @@
+//! badm is a command-line tool use to store dotfiles, or configuration files.
+
 #![allow(dead_code)]
 
 pub use crate::config::Config;
@@ -50,7 +52,7 @@ pub fn unstow_dotfile<P: AsRef<Path>>(path: P) -> io::Result<()> {
 }
 
 /// Create symlinks in directories relative to the dotfiles' directory hierarchy
-/// for "rolling out" new configurations.
+/// for deploying new configurations.
 /// Example: if Ferris downloaded a git dotfiles repo onto a new machine into the
 /// .dotfiles directory:
 ///
