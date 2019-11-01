@@ -18,7 +18,7 @@ pub fn is_symlink(path: &Path) -> io::Result<bool> {
     Ok(filetype.is_symlink())
 }
 
-pub fn normalize_path(path: &Path) -> io::Result<PathBuf> {
+pub fn sanitize_path(path: &Path) -> io::Result<PathBuf> {
     let path: PathBuf = if path.starts_with("~") {
         expand_tilde(path)?
     } else if path.is_relative() {

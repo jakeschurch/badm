@@ -10,7 +10,7 @@ use toml;
 
 #[derive(Serialize, Deserialize)]
 pub struct Config {
-    pub directory: PathBuf,
+    pub(crate) directory: PathBuf,
 }
 
 impl Into<PathBuf> for Config {
