@@ -120,21 +120,16 @@ pub fn restore_dotfile(path: PathBuf) -> io::Result<()> {
 /// Directories to replicate the stored dotfile's directory structure will be created if
 /// not found.
 // REVIEW: not enough checks - ensure valid entry
-pub fn deploy_dotfile(src: &Path, dotfiles_dir: &Path) -> io::Result<()> {
-    let dst_symlink = PathBuf::from("/").join(
-        src.strip_prefix(dotfiles_dir)
-            .expect("Not able to create destination path"),
-    );
-
+pub fn deploy_dotfile(src: &Path, dst: &Path) -> io::Result<()> {
     // if symlink already exists and points to src file, early return
-    if dst_symlink.exists() && fs::read_link(&dst_symlink)? == src {
+    if dst.exists() && fs::read_link(&dst)? == src {
         return Ok(());
     };
 
-    let dst_dir = dst_symlink.parent().unwrap();
+    let dst_dir = dst.parent().unwrap();
     if !dst_dir.exists() {
         fs::create_dir_all(dst_dir)?;
     };
 
-    FileHandler::create_symlink(&src, &dst_symlink)
+    FileHandler::create_symlink(&src, &dst)
 }

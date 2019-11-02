@@ -1,4 +1,4 @@
-// TODO: need to update tests for stow -> store things
+//! Contains integration tests for the badm_core crate
 use badm_core::{self, Config, FileHandler};
 
 use std::fs;
@@ -20,7 +20,9 @@ fn mock_config_file() -> io::Result<()> {
     if dotfiles_dir().join(".badm.toml").exists() {
         Ok(())
     } else {
-        let config = Config::new(dotfiles_dir());
+        let config = Config {
+            directory: dotfiles_dir(),
+        };
         config.write_toml_config()
     }
 }
@@ -46,6 +48,24 @@ fn mock_dotfile<P: AsRef<Path>>(parent_dir: P) -> io::Result<PathBuf> {
 
 #[ignore]
 #[test]
+fn store_dotfiles_test() -> io::Result<()> {
+    mock_config_file()?;
+
+    let dotfile_path = mock_dotfile(home_dir().unwrap())?;
+
+    let expected_stow_path =
+        stow_dir().join(dotfile_path.strip_prefix(home_dir().unwrap()).unwrap());
+
+    let stow_path = badm_core::commands::store_dotfile(&dotfile_path)?;
+
+    assert!(expected_stow_path.exists());
+    assert_eq!(expected_stow_path, stow_path);
+
+    Ok(())
+}
+
+#[ignore]
+#[test]
 fn restore_dotfile_test() -> io::Result<()> {
     mock_config_file()?;
 
@@ -67,24 +87,6 @@ fn restore_dotfile_test() -> io::Result<()> {
 
 #[ignore]
 #[test]
-fn store_dotfiles_test() -> io::Result<()> {
-    mock_config_file()?;
-
-    let dotfile_path = mock_dotfile(home_dir().unwrap())?;
-
-    let expected_stow_path =
-        stow_dir().join(dotfile_path.strip_prefix(home_dir().unwrap()).unwrap());
-
-    let stow_path = badm_core::commands::store_dotfile(&dotfile_path)?;
-
-    assert!(expected_stow_path.exists());
-    assert_eq!(expected_stow_path, stow_path);
-
-    Ok(())
-}
-
-#[ignore]
-#[test]
 fn deploy_dotfile_test() -> io::Result<()> {
     mock_config_file()?;
 
@@ -95,9 +97,13 @@ fn deploy_dotfile_test() -> io::Result<()> {
         .strip_prefix(dotfiles_dir())
         .expect("Not able to strip prefix");
 
+    assert!(dotfile_path.exists());
+
     let expected_symlink_path = PathBuf::from("/").join(stripped_dotfile_path);
 
-    badm_core::commands::deploy_dotfile(&dotfile_path, &dotfiles_dir())?;
+    badm_core::commands::deploy_dotfile(&dotfile_path, &expected_symlink_path)?;
+
+    println!("deploy ran successfully",);
 
     assert_eq!(fs::read_link(expected_symlink_path)?, dotfile_path);
 

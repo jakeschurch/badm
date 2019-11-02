@@ -103,7 +103,7 @@ fn main() -> io::Result<()> {
 }
 
 fn set_dir<P: AsRef<Path>>(path: P) -> io::Result<()> {
-    let _ = Config::set_dots_dir(path.as_ref())?;
+    let _ = Config::set_dots_dir(path.as_ref().to_path_buf())?;
     Ok(())
 }
 
@@ -111,11 +111,12 @@ fn stow(values: Values) -> io::Result<()> {
     for value in values.into_iter() {
         let path = PathBuf::from(value);
 
-        let path = sanitize_path(&path)?;
+        let src_path = sanitize_path(&path)?;
 
         // TODO: push down is symlink and return error
-        if path.is_file() && !is_symlink(&path)? {
-            store_dotfile(&path)?;
+        if src_path.is_file() && !is_symlink(&src_path)? {
+            let dst_path = store_dotfile(&src_path)?;
+            deploy_dotfile(&dst_path, &src_path)?;
         };
     }
     Ok(())

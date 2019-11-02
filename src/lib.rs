@@ -4,9 +4,14 @@
 
 pub mod commands;
 pub(crate) mod config;
+mod errors;
 pub mod paths;
 
 pub use crate::config::Config;
+pub use crate::errors::InputError;
+
+#[macro_use]
+extern crate failure;
 
 use std::fs::{self, File};
 use std::io::{self, prelude::*, BufWriter};
