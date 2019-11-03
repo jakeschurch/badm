@@ -91,10 +91,7 @@ fn main() -> io::Result<()> {
             let dir_path = set_dir_matches.value_of("directory").unwrap();
             set_dir(dir_path)?
         }
-        ("stow", Some(stow_matches)) => {
-            let input_paths = stow_matches.values_of("files").unwrap();
-            stow(input_paths)?
-        }
+        ("stow", Some(stow_matches)) => stow(stow_matches)?,
         ("deploy", Some(deploy_matches)) => deploy(deploy_matches)?,
         ("restore", Some(restore_matches)) => restore(restore_matches)?,
         _ => unreachable!(),
@@ -111,10 +108,21 @@ fn set_dir<P: AsRef<Path>>(path: P) -> Result<(), Error> {
     Ok(())
 }
 
-fn stow(values: Values) -> io::Result<()> {
-    for value in values.into_iter() {
-        let path = PathBuf::from(value);
+fn stow(values: &ArgMatches) -> io::Result<()> {
+    let mut input_paths = vec![];
 
+    // TODO: push up to own function
+    // prepare paths
+    for path in values.values_of("files").unwrap() {
+        let paths = glob(path)
+            .unwrap()
+            .filter_map(Result::ok)
+            .filter(|path| path.is_file())
+            .collect::<Vec<PathBuf>>();
+        input_paths.push(paths);
+    }
+
+    for path in input_paths.into_iter().flatten() {
         let src_path = sanitize_path(&path)?;
 
         // TODO: push down is symlink and return error
