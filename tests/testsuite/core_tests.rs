@@ -1,50 +1,23 @@
 //! Contains integration tests for the badm_core crate
-use badm_core::{self, Config, FileHandler};
 
 use std::fs;
 use std::io;
 use std::path::PathBuf;
 
-use dirs::home_dir;
+use badm_core::{self, FileHandler};
 use once_cell::sync::Lazy;
-use tempfile::Builder;
 
-static HOME_DIR: Lazy<PathBuf> = Lazy::new(|| home_dir().unwrap());
-static DOTFILES_DIR: Lazy<PathBuf> = Lazy::new(|| HOME_DIR.join(".dotfiles"));
-static STOW_DIR: Lazy<PathBuf> =
+use crate::common::{mock_config_file, mock_dotfile_in, DOTFILES_DIR, HOME_DIR};
+
+pub static STOW_DIR: Lazy<PathBuf> =
     Lazy::new(|| badm_core::paths::join_full_paths(&DOTFILES_DIR, &HOME_DIR).unwrap());
-
-fn mock_config_file() -> io::Result<()> {
-    if HOME_DIR.join(".badm.toml").exists() {
-        Ok(())
-    } else {
-        let config = Config {
-            directory: DOTFILES_DIR.to_path_buf(),
-        };
-        config.write_toml_config()
-    }
-}
-
-fn mock_dotfile(parent_dir: PathBuf) -> io::Result<PathBuf> {
-    let mut builder = Builder::new();
-
-    if !parent_dir.exists() {
-        fs::create_dir_all(&parent_dir)?;
-    };
-
-    let dotfile = builder.rand_bytes(6).tempfile_in(parent_dir)?;
-
-    let (_, dotfile_path) = dotfile.keep()?;
-
-    Ok(dotfile_path)
-}
 
 #[ignore]
 #[test]
 fn store_dotfiles_test() -> io::Result<()> {
     mock_config_file()?;
 
-    let dotfile_path = mock_dotfile(HOME_DIR.to_path_buf())?;
+    let dotfile_path = mock_dotfile_in(HOME_DIR.to_path_buf())?;
 
     let expected_stow_path = STOW_DIR.join(dotfile_path.file_name().unwrap());
 
@@ -62,7 +35,7 @@ fn restore_dotfile_test() -> io::Result<()> {
     mock_config_file()?;
 
     // mock dotfile and corresponding symlink
-    let dotfile_path = mock_dotfile(STOW_DIR.to_path_buf())?;
+    let dotfile_path = mock_dotfile_in(STOW_DIR.to_path_buf())?;
 
     let stripped_dotfile_path = dotfile_path
         .strip_prefix(DOTFILES_DIR.to_path_buf())
@@ -85,7 +58,7 @@ fn deploy_dotfile_test() -> io::Result<()> {
     mock_config_file()?;
 
     // mock the stowed dotfile
-    let dotfile_path = mock_dotfile(STOW_DIR.to_path_buf())?;
+    let dotfile_path = mock_dotfile_in(STOW_DIR.to_path_buf())?;
 
     let stripped_dotfile_path = dotfile_path
         .strip_prefix(DOTFILES_DIR.to_path_buf())
