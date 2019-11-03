@@ -1,3 +1,4 @@
+//! Contains integration tests for the badm_core crate
 use badm_core::{self, Config, FileHandler};
 
 use std::fs;
@@ -19,7 +20,9 @@ fn mock_config_file() -> io::Result<()> {
     if dotfiles_dir().join(".badm.toml").exists() {
         Ok(())
     } else {
-        let config = Config::new(dotfiles_dir());
+        let config = Config {
+            directory: dotfiles_dir(),
+        };
         config.write_toml_config()
     }
 }
@@ -45,7 +48,25 @@ fn mock_dotfile<P: AsRef<Path>>(parent_dir: P) -> io::Result<PathBuf> {
 
 #[ignore]
 #[test]
-fn unstow_dotfile_test() -> io::Result<()> {
+fn store_dotfiles_test() -> io::Result<()> {
+    mock_config_file()?;
+
+    let dotfile_path = mock_dotfile(home_dir().unwrap())?;
+
+    let expected_stow_path =
+        stow_dir().join(dotfile_path.strip_prefix(home_dir().unwrap()).unwrap());
+
+    let stow_path = badm_core::commands::store_dotfile(&dotfile_path)?;
+
+    assert!(expected_stow_path.exists());
+    assert_eq!(expected_stow_path, stow_path);
+
+    Ok(())
+}
+
+#[ignore]
+#[test]
+fn restore_dotfile_test() -> io::Result<()> {
     mock_config_file()?;
 
     // mock dotfile and corresponding symlink
@@ -57,7 +78,7 @@ fn unstow_dotfile_test() -> io::Result<()> {
     fs::create_dir_all(symlink_path.parent().unwrap())?;
     FileHandler::create_symlink(&dotfile_path, &symlink_path)?;
 
-    badm_core::unstow_dotfile(dotfile_path)?;
+    badm_core::commands::restore_dotfile(dotfile_path)?;
 
     assert!(!badm_core::paths::is_symlink(&symlink_path)?);
 
@@ -66,25 +87,7 @@ fn unstow_dotfile_test() -> io::Result<()> {
 
 #[ignore]
 #[test]
-fn stow_dotfiles_test() -> io::Result<()> {
-    mock_config_file()?;
-
-    let dotfile_path = mock_dotfile(home_dir().unwrap())?;
-
-    let expected_stow_path =
-        stow_dir().join(dotfile_path.strip_prefix(home_dir().unwrap()).unwrap());
-
-    let stow_path = badm_core::stow_dotfile(&dotfile_path)?;
-
-    assert_eq!(fs::read_link(dotfile_path)?, stow_path);
-    assert_eq!(expected_stow_path, stow_path);
-
-    Ok(())
-}
-
-#[ignore]
-#[test]
-fn create_dotfiles_symlink_test() -> io::Result<()> {
+fn deploy_dotfile_test() -> io::Result<()> {
     mock_config_file()?;
 
     // mock the stowed dotfile
@@ -94,9 +97,13 @@ fn create_dotfiles_symlink_test() -> io::Result<()> {
         .strip_prefix(dotfiles_dir())
         .expect("Not able to strip prefix");
 
+    assert!(dotfile_path.exists());
+
     let expected_symlink_path = PathBuf::from("/").join(stripped_dotfile_path);
 
-    badm_core::create_dotfile_symlink(&dotfile_path)?;
+    badm_core::commands::deploy_dotfile(&dotfile_path, &expected_symlink_path)?;
+
+    println!("deploy ran successfully",);
 
     assert_eq!(fs::read_link(expected_symlink_path)?, dotfile_path);
 

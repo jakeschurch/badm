@@ -5,8 +5,14 @@ use std::path::{Path, PathBuf, StripPrefixError};
 
 use dirs;
 
-pub(crate) fn read_file(path: &Path) -> io::Result<String> {
+pub(crate) fn read_path(path: &Path) -> io::Result<String> {
     let mut file = File::open(path)?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
+    Ok(contents)
+}
+
+pub(crate) fn read_file(file: &mut File) -> io::Result<String> {
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
     Ok(contents)
@@ -18,7 +24,7 @@ pub fn is_symlink(path: &Path) -> io::Result<bool> {
     Ok(filetype.is_symlink())
 }
 
-pub fn normalize_path(path: &Path) -> io::Result<PathBuf> {
+pub fn sanitize_path(path: &Path) -> io::Result<PathBuf> {
     let path: PathBuf = if path.starts_with("~") {
         expand_tilde(path)?
     } else if path.is_relative() {
