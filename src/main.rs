@@ -102,8 +102,12 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
-fn set_dir<P: AsRef<Path>>(path: P) -> io::Result<()> {
-    let _ = Config::set_dots_dir(path.as_ref().to_path_buf())?;
+fn set_dir<P: AsRef<Path>>(path: P) -> Result<(), Error> {
+    let path = path.as_ref().to_path_buf();
+
+    let set_path = Config::set_dots_dir(path)?;
+
+    println! {"BADM dotfiles path has been set to: {:?}", set_path};
     Ok(())
 }
 
