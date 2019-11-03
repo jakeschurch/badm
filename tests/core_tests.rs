@@ -3,43 +3,36 @@ use badm_core::{self, Config, FileHandler};
 
 use std::fs;
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use dirs::home_dir;
+use once_cell::sync::Lazy;
 use tempfile::Builder;
 
-fn dotfiles_dir() -> PathBuf {
-    home_dir().unwrap().join(".dotfiles")
-}
-
-fn stow_dir() -> PathBuf {
-    badm_core::paths::join_full_paths(&dotfiles_dir(), &home_dir().unwrap()).unwrap()
-}
+static HOME_DIR: Lazy<PathBuf> = Lazy::new(|| home_dir().unwrap());
+static DOTFILES_DIR: Lazy<PathBuf> = Lazy::new(|| HOME_DIR.join(".dotfiles"));
+static STOW_DIR: Lazy<PathBuf> =
+    Lazy::new(|| badm_core::paths::join_full_paths(&DOTFILES_DIR, &HOME_DIR).unwrap());
 
 fn mock_config_file() -> io::Result<()> {
-    if dotfiles_dir().join(".badm.toml").exists() {
+    if HOME_DIR.join(".badm.toml").exists() {
         Ok(())
     } else {
         let config = Config {
-            directory: dotfiles_dir(),
+            directory: DOTFILES_DIR.to_path_buf(),
         };
         config.write_toml_config()
     }
 }
 
-fn mock_dotfile<P: AsRef<Path>>(parent_dir: P) -> io::Result<PathBuf> {
+fn mock_dotfile(parent_dir: PathBuf) -> io::Result<PathBuf> {
     let mut builder = Builder::new();
-    let parent_dir = parent_dir.as_ref();
 
     if !parent_dir.exists() {
-        fs::create_dir_all(parent_dir)?;
+        fs::create_dir_all(&parent_dir)?;
     };
 
-    // create parent path
-    let parent_dir = builder.tempdir_in(parent_dir)?;
-    let parent_path = parent_dir.into_path();
-
-    let dotfile = builder.rand_bytes(6).tempfile_in(parent_path)?;
+    let dotfile = builder.rand_bytes(6).tempfile_in(parent_dir)?;
 
     let (_, dotfile_path) = dotfile.keep()?;
 
@@ -51,10 +44,9 @@ fn mock_dotfile<P: AsRef<Path>>(parent_dir: P) -> io::Result<PathBuf> {
 fn store_dotfiles_test() -> io::Result<()> {
     mock_config_file()?;
 
-    let dotfile_path = mock_dotfile(home_dir().unwrap())?;
+    let dotfile_path = mock_dotfile(HOME_DIR.to_path_buf())?;
 
-    let expected_stow_path =
-        stow_dir().join(dotfile_path.strip_prefix(home_dir().unwrap()).unwrap());
+    let expected_stow_path = STOW_DIR.join(dotfile_path.file_name().unwrap());
 
     let stow_path = badm_core::commands::store_dotfile(&dotfile_path)?;
 
@@ -70,9 +62,11 @@ fn restore_dotfile_test() -> io::Result<()> {
     mock_config_file()?;
 
     // mock dotfile and corresponding symlink
-    let dotfile_path = mock_dotfile(stow_dir())?;
+    let dotfile_path = mock_dotfile(STOW_DIR.to_path_buf())?;
 
-    let stripped_dotfile_path = dotfile_path.strip_prefix(dotfiles_dir()).unwrap();
+    let stripped_dotfile_path = dotfile_path
+        .strip_prefix(DOTFILES_DIR.to_path_buf())
+        .unwrap();
 
     let symlink_path = PathBuf::from("/").join(stripped_dotfile_path);
     fs::create_dir_all(symlink_path.parent().unwrap())?;
@@ -91,10 +85,10 @@ fn deploy_dotfile_test() -> io::Result<()> {
     mock_config_file()?;
 
     // mock the stowed dotfile
-    let dotfile_path = mock_dotfile(stow_dir())?;
+    let dotfile_path = mock_dotfile(STOW_DIR.to_path_buf())?;
 
     let stripped_dotfile_path = dotfile_path
-        .strip_prefix(dotfiles_dir())
+        .strip_prefix(DOTFILES_DIR.to_path_buf())
         .expect("Not able to strip prefix");
 
     assert!(dotfile_path.exists());
