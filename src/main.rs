@@ -4,6 +4,7 @@
 // TEMP: since in large dev production
 #![allow(dead_code)]
 
+use glob::glob;
 use std::env;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -11,13 +12,14 @@ use std::path::{Path, PathBuf};
 #[macro_use]
 extern crate clap;
 
-use clap::{App, Arg, ArgMatches, Values};
+use clap::{App, Arg, ArgMatches};
+use failure::Error;
 
 use badm_core::commands::{deploy_dotfile, restore_dotfile, store_dotfile};
 use badm_core::paths::{is_symlink, sanitize_path};
 use badm_core::{Config, DirectoryScanner};
 
-fn main() -> io::Result<()> {
+fn main() -> Result<(), Error> {
     let set_dir_subcommand = App::new("set-dir")
         .about("set path of dotfiles directory")
         .version("1.0")
