@@ -1,8 +1,8 @@
 use std::convert::TryFrom;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io;
 use std::io::prelude::*;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use crate::errors::InputError;
@@ -10,24 +10,46 @@ use dirs::{config_dir, home_dir};
 use serde_derive::{Deserialize, Serialize};
 use toml;
 
-#[derive(Fail, Debug)]
-pub enum ConfigError {
-    #[fail(display = "Bad Dotfile Directory given: {:?}", directory)]
-    BadConfigDir { directory: PathBuf },
-}
-
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Config {
     pub directory: PathBuf,
 }
 
 impl Config {
-    pub fn new(directory: PathBuf) -> Result<Self, ConfigError> {
+    pub(crate) fn new<P: AsRef<Path>>(directory: P) -> Result<Self, InputError> {
+        let directory = directory.as_ref().to_path_buf();
+
         if directory.is_dir() {
             Ok(Self { directory })
         } else {
-            Err(ConfigError::BadConfigDir { directory })
+            Err(InputError::BadInput {
+                err: io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "Input to set dots directory is invalid",
+                ),
+            })
         }
+    }
+
+    // REVIEW: how should we handle if a dotfiles directory is already set?
+    pub fn set_dots_dir(path: PathBuf) -> Result<PathBuf, InputError> {
+        if !path.exists() {
+            fs::create_dir_all(&path).expect("could not create path");
+        } else if !path.is_dir() {
+            return Err(InputError::BadInput {
+                err: io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "Input to set dots directory is invalid",
+                ),
+            });
+        };
+
+        let config = Config::new(&path)?;
+
+        config
+            .write_toml_config()
+            .expect("could not write toml config");
+        Ok(path)
     }
 
     pub fn get_dots_dir() -> Option<PathBuf> {
@@ -80,13 +102,6 @@ impl Config {
 
         Ok(())
     }
-
-    // REVIEW: how should we handle if a dotfiles directory is already set?
-    pub fn set_dots_dir(path: PathBuf) -> io::Result<()> {
-        let config = Config { directory: path };
-
-        config.write_toml_config()
-    }
 }
 
 impl TryFrom<File> for Config {
@@ -120,22 +135,26 @@ impl FromStr for Config {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use failure::Error;
     use std::fs;
 
     #[ignore]
     #[test]
-    fn set_dots_dir_test() -> io::Result<()> {
+    fn set_dots_dir_test() -> Result<(), Error> {
         let home_dir = home_dir().unwrap();
         if !home_dir.exists() {
-            fs::create_dir_all(&home_dir)?;
+            fs::create_dir_all(&home_dir).expect("could not create home dir");
         }
+
         let dots_dir = home_dir.join(".dotfiles");
         Config::set_dots_dir(dots_dir.clone())?;
 
-        let toml = crate::paths::read_path(&home_dir.join(".badm.toml"))?;
+        let toml = crate::paths::read_path(&home_dir.join(".badm.toml"))
+            .expect("could not read path");
 
         // Read file contents
-        let config: Config = toml::from_str(toml.as_str())?;
+        let config: Config =
+            toml::from_str(toml.as_str()).expect("could not convert toml");
         assert_eq!(config.directory, dots_dir);
 
         Ok(())

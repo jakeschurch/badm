@@ -10,7 +10,7 @@ pub enum InputError {
 
 impl From<io::Error> for InputError {
     fn from(err: io::Error) -> InputError {
-        InputError::InvalidToml { err }
+        InputError::BadInput { err }
     }
 }
 

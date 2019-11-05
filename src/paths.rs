@@ -3,44 +3,22 @@ use std::io;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf, StripPrefixError};
 
-use dirs;
+/// Wrapper for is_symlink for paths
+pub fn is_symlink(path: &Path) -> bool {
+    fs::symlink_metadata(path)
+        .map(|md| md.file_type().is_symlink())
+        .unwrap_or(false)
+}
 
 pub(crate) fn read_path(path: &Path) -> io::Result<String> {
     let mut file = File::open(path)?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
-    Ok(contents)
+    read_file(&mut file)
 }
 
 pub(crate) fn read_file(file: &mut File) -> io::Result<String> {
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
     Ok(contents)
-}
-
-pub fn is_symlink(path: &Path) -> io::Result<bool> {
-    let filetype = fs::symlink_metadata(path)?.file_type();
-
-    Ok(filetype.is_symlink())
-}
-
-pub fn sanitize_path(path: &Path) -> io::Result<PathBuf> {
-    let path: PathBuf = if path.starts_with("~") {
-        expand_tilde(path)?
-    } else if path.is_relative() {
-        fs::canonicalize(path)?
-    } else {
-        path.to_path_buf()
-    };
-
-    Ok(path)
-}
-
-pub fn expand_tilde(path: &Path) -> io::Result<PathBuf> {
-    let path = path
-        .strip_prefix("~")
-        .expect("Could not strip tilde from path!");
-    Ok(dirs::home_dir().unwrap().join(path))
 }
 
 /// Joins two full paths together.
@@ -56,17 +34,15 @@ pub fn expand_tilde(path: &Path) -> io::Result<PathBuf> {
 /// ```
 /// use badm_core::paths::join_full_paths;
 /// use std::path::PathBuf;
-/// # use std::path;
-///
-/// let path_1 = PathBuf::from("/home/ferris/.dotfiles");
-/// let path_2 = PathBuf::from("/home/ferris");
 ///
 /// assert_eq!(
-///     join_full_paths(&path_1, &path_2),
+///     join_full_paths(
+///         &PathBuf::from("/home/ferris/.dotfiles"),
+///         &PathBuf::from("/home/ferris")
+///     ),
 ///     Ok(PathBuf::from("/home/ferris/.dotfiles/home/ferris"))
 /// );
 /// ```
-// TODO: test windows root paths
 pub fn join_full_paths(
     path_1: &Path,
     path_2: &Path,

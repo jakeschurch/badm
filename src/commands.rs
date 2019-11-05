@@ -1,3 +1,5 @@
+//! Includes the commands used by the badm crate/application.
+
 use std::fs;
 use std::io::{self, Error, ErrorKind};
 use std::path::{Path, PathBuf};
@@ -6,6 +8,7 @@ use crate::paths::{is_symlink, join_full_paths};
 use crate::Config;
 use crate::FileHandler;
 
+/// Take input from file at path and store in set dotfiles directory.
 pub fn store_dotfile(path: &Path) -> io::Result<PathBuf> {
     // create destination path
     let dots_dir = match Config::get_dots_dir() {
@@ -17,14 +20,7 @@ pub fn store_dotfile(path: &Path) -> io::Result<PathBuf> {
                  run `badm set-dir=<DIR> first.`",
             );
             return Err(err);
-        }
-    };
-
-    // TODO: substitute for normalize_path
-    let path = if path.is_relative() {
-        fs::canonicalize(path)?
-    } else {
-        path.to_path_buf()
+        },
     };
 
     let dst_path = join_full_paths(&dots_dir, &path).unwrap();
@@ -49,40 +45,41 @@ pub fn store_dotfile(path: &Path) -> io::Result<PathBuf> {
 
 /// Dotfile is removed from the set dotfiles directory and moved to its symlink location.
 /// The input can either be a dotfile's symlink path or the dotfile path itself.
-pub fn restore_dotfile(path: PathBuf) -> io::Result<()> {
+/// Returns destination path.
+pub fn restore_dotfile(path: PathBuf) -> io::Result<PathBuf> {
     // get src and dst paths
-    let (src_path, dst_path): (PathBuf, PathBuf) = if is_symlink(&path)? {
-        let src_path = fs::read_link(&path)?;
-        fs::remove_file(&path)?;
-
-        (src_path, path)
+    let (src_path, dst_path): (PathBuf, PathBuf) = if is_symlink(&path) {
+        (fs::read_link(&path)?, path)
     } else {
-        // TODO: lift this out to is_dotfile fn
-
-        // check to see if file is in dotfiles dir
-        let dots_dir = Config::get_dots_dir().unwrap();
-
-        if !path.starts_with(&dots_dir) {
-            // throw error
-            let err = Error::new(
-                ErrorKind::InvalidInput,
-                "input path not located in dotfiles dir!",
-            );
-            return Err(err);
-        };
-        let dst_path =
-            PathBuf::from("/").join(path.strip_prefix(dots_dir).unwrap().to_path_buf());
-
-        if dst_path.exists() {
-            fs::remove_file(&dst_path)?;
-        };
+        let restore_path = path.strip_prefix(Config::get_dots_dir().unwrap()).unwrap();
+        let dst_path = PathBuf::from("/").join(restore_path);
 
         (path, dst_path)
     };
 
+    let is_dotfile = |path: &Path| -> bool {
+        crate::Config::get_dots_dir()
+            .map(|dir| path.starts_with(dir))
+            .unwrap()
+    };
+
+    // check to see if src path exists in dotfiles directory, if not: it is invalid input
+    if !is_dotfile(&src_path) {
+        // throw error
+        let err = Error::new(
+            ErrorKind::InvalidInput,
+            "input path not located in dotfiles dir!",
+        );
+        return Err(err);
+    };
+
+    if dst_path.exists() {
+        fs::remove_file(&dst_path)?;
+    };
+
     FileHandler::move_file(&src_path, &dst_path)?;
 
-    Ok(())
+    Ok(dst_path)
 }
 
 /// Create symlinks in directories relative to the dotfiles' directory hierarchy
