@@ -140,7 +140,9 @@ fn deploy(matches: &ArgMatches) -> io::Result<()> {
     let dotfiles_dir = Config::get_dots_dir().unwrap();
 
     let dotfiles = if matches.is_present("all") {
-        DirectoryScanner::new().get_entries(&dotfiles_dir)?
+        DirScanner::default()
+            .recursive()
+            .get_entries(&dotfiles_dir)?
     } else {
         matches
             .values_of("dotfiles")

@@ -1,5 +1,6 @@
 //! badm is a command-line tool use to store dotfiles, or configuration files.
 
+#![allow(clippy::all)]
 #![allow(dead_code)]
 
 pub mod commands;
@@ -10,8 +11,7 @@ pub mod paths;
 pub use crate::config::Config;
 pub use crate::errors::InputError;
 
-#[macro_use]
-extern crate failure;
+#[macro_use] extern crate failure;
 
 use std::fs::{self, File};
 use std::io::{self, prelude::*, BufWriter};
@@ -19,37 +19,49 @@ use std::path::{Path, PathBuf};
 
 // TODO: create dotfile struct
 
-pub struct DirectoryScanner {
+pub struct DirScanner {
     entries: Vec<PathBuf>,
+    recursive: bool,
 }
 
-impl DirectoryScanner {
-    pub fn new() -> Self {
-        Self {
-            entries: Vec::new(),
-        }
-    }
-
-    pub fn get_entries(&mut self, dir: &Path) -> io::Result<(Vec<PathBuf>)> {
+impl DirScanner {
+    pub fn get_entries(mut self, dir: &Path) -> io::Result<Vec<PathBuf>> {
         self.collect_entries(dir)?;
 
         self.entries = self
             .entries
-            .iter_mut()
-            .map(fs::canonicalize)
+            .into_iter()
+            .map(|path| {
+                if path.is_relative() {
+                    fs::canonicalize(path)
+                } else {
+                    Ok(path)
+                }
+            })
             .filter_map(Result::ok)
-            .collect::<Vec<PathBuf>>();
+            .collect();
 
-        Ok(self.entries.clone())
+        Ok(self.entries)
+    }
+
+    fn new() -> Self {
+        DirScanner {
+            entries: Vec::new(),
+            recursive: false,
+        }
+    }
+
+    pub fn recursive(mut self) -> Self {
+        self.recursive = true;
+        self
     }
 
     fn collect_entries(&mut self, dir: &Path) -> io::Result<()> {
         if dir.is_dir() {
             for entry in fs::read_dir(dir)? {
-                let entry = entry?;
-                let path = entry.path();
+                let path = entry.map(|e| e.path())?;
 
-                if path.is_dir() {
+                if path.is_dir() && self.recursive {
                     if !path.ends_with(".git") {
                         self.collect_entries(&path)?;
                     }
@@ -59,6 +71,15 @@ impl DirectoryScanner {
             }
         }
         Ok(())
+    }
+}
+
+impl Default for DirScanner {
+    fn default() -> Self {
+        DirScanner {
+            entries: vec![],
+            recursive: false,
+        }
     }
 }
 
