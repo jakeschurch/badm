@@ -34,13 +34,12 @@ pub(crate) fn read_file(file: &mut File) -> io::Result<String> {
 /// ```
 /// use badm_core::paths::join_full_paths;
 /// use std::path::PathBuf;
-/// # use std::path;
-///
-/// let path_1 = PathBuf::from("/home/ferris/.dotfiles");
-/// let path_2 = PathBuf::from("/home/ferris");
 ///
 /// assert_eq!(
-///     join_full_paths(&path_1, &path_2),
+///     join_full_paths(
+///         &PathBuf::from("/home/ferris/.dotfiles"),
+///         &PathBuf::from("/home/ferris")
+///     ),
 ///     Ok(PathBuf::from("/home/ferris/.dotfiles/home/ferris"))
 /// );
 /// ```
