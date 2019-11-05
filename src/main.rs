@@ -1,23 +1,18 @@
-// TODO: create integration tests for main
-
 #![allow(clippy::all)]
-// TEMP: since in large dev production
-#![allow(dead_code)]
 
 use glob::glob;
-use std::env;
+use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-#[macro_use]
-extern crate clap;
+#[macro_use] extern crate clap;
 
 use clap::{App, Arg, ArgMatches};
 use failure::Error;
 
 use badm_core::commands::{deploy_dotfile, restore_dotfile, store_dotfile};
-use badm_core::paths::{is_symlink, sanitize_path};
-use badm_core::{Config, DirectoryScanner};
+use badm_core::paths::is_symlink;
+use badm_core::{Config, DirScanner};
 
 fn main() -> Result<(), Error> {
     let set_dir_subcommand = App::new("set-dir")
@@ -92,7 +87,7 @@ fn main() -> Result<(), Error> {
         ("set-dir", Some(set_dir_matches)) => {
             let dir_path = set_dir_matches.value_of("directory").unwrap();
             set_dir(dir_path)?
-        }
+        },
         ("stow", Some(stow_matches)) => stow(stow_matches)?,
         ("deploy", Some(deploy_matches)) => deploy(deploy_matches)?,
         ("restore", Some(restore_matches)) => restore(restore_matches)?,
@@ -116,22 +111,25 @@ fn stow(values: &ArgMatches) -> io::Result<()> {
     // TODO: push up to own function
     // prepare paths
     for path in values.values_of("files").unwrap() {
-        let paths = glob(path)
+        let mut paths = glob(path)
             .unwrap()
             .filter_map(Result::ok)
-            .filter(|path| path.is_file())
+            .filter(|path| path.is_file() && !is_symlink(path))
+            .map(|path| {
+                if path.is_relative() {
+                    fs::canonicalize(path)
+                } else {
+                    Ok(path)
+                }
+            })
+            .filter_map(Result::ok)
             .collect::<Vec<PathBuf>>();
-        input_paths.push(paths);
+        input_paths.append(&mut paths);
     }
 
-    for path in input_paths.into_iter().flatten() {
-        let src_path = sanitize_path(&path)?;
-
-        // TODO: push down is symlink and return error
-        if src_path.is_file() && !is_symlink(&src_path)? {
-            let dst_path = store_dotfile(&src_path)?;
-            deploy_dotfile(&dst_path, &src_path)?;
-        };
+    for path in input_paths.into_iter() {
+        let dst_path = store_dotfile(&path)?;
+        deploy_dotfile(&dst_path, &path)?;
     }
     Ok(())
 }
