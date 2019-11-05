@@ -45,9 +45,10 @@ fn restore_dotfile_test() -> io::Result<()> {
     fs::create_dir_all(symlink_path.parent().unwrap())?;
     FileHandler::create_symlink(&dotfile_path, &symlink_path)?;
 
-    badm_core::commands::restore_dotfile(dotfile_path)?;
+    let actual_dst_path = badm_core::commands::restore_dotfile(dotfile_path)?;
 
-    assert!(!badm_core::paths::is_symlink(&symlink_path)?);
+    assert!(!badm_core::paths::is_symlink(&symlink_path));
+    assert_eq!(actual_dst_path, symlink_path);
 
     Ok(())
 }
