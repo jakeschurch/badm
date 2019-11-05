@@ -1,6 +1,7 @@
 //! badm is a command-line tool use to store dotfiles, or configuration files.
 
 #![allow(clippy::all)]
+// #![deny(missing_docs)]
 #![allow(dead_code)]
 
 pub mod commands;
@@ -83,6 +84,7 @@ impl Default for DirScanner {
     }
 }
 
+/// Moves, stores, and creates files and symlinks.
 pub struct FileHandler;
 
 impl FileHandler {
@@ -90,33 +92,13 @@ impl FileHandler {
     /// source of the stowed file.
     pub fn store_file(src: &Path, dst: &Path) -> io::Result<()> {
         FileHandler::move_file(src, dst)?;
-
-        FileHandler::create_symlink(dst, src)?;
-
-        Ok(())
+        FileHandler::create_symlink(dst, src)
     }
 
-    /// Create a symlink at "dst" pointing to "src."
-    ///
-    /// For Unix platforms, std::os::unix::fs::symlink is used to create
-    /// symlinks. For Windows, std::os::windows::fs::symlink_file is used.
-    // TODO|BUGFIX: ensure or throw error when dst parent does not exist
-    pub fn create_symlink(src: &Path, dst: &Path) -> io::Result<()> {
-        #[cfg(not(target_os = "windows"))]
-        use std::os::unix::fs::symlink;
-
-        #[cfg(target_os = "windows")]
-        use std::os::windows::fs::symlink_file as symlink;
-        symlink(src, dst)?;
-
-        Ok(())
-    }
-
+    /// Read file at path src and write to created/truncated file at path dst
     pub fn move_file(src: &Path, dst: &Path) -> io::Result<()> {
-        // read file to String
-        let mut contents = String::new();
-        let mut f = File::open(src)?;
-        f.read_to_string(&mut contents)?;
+        // read file path to String
+        let contents = crate::paths::read_path(src)?;
 
         // write String contents to dst file
         let dst_file = File::create(dst)?;
@@ -124,8 +106,18 @@ impl FileHandler {
         writer.write_all(contents.as_bytes())?;
 
         // remove file at src location
-        fs::remove_file(&src)?;
+        fs::remove_file(&src)
+    }
 
-        Ok(())
+    /// Create a symlink at "dst" pointing to "src."
+    ///
+    /// For Unix platforms, std::os::unix::fs::symlink is used to create
+    /// symlinks. For Windows, std::os::windows::fs::symlink_file is used.
+    pub fn create_symlink(src: &Path, dst: &Path) -> io::Result<()> {
+        #[cfg(not(target_os = "windows"))] use std::os::unix::fs::symlink;
+
+        #[cfg(target_os = "windows")]
+        use std::os::windows::fs::symlink_file as symlink;
+        symlink(src, dst)
     }
 }
