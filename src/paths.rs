@@ -3,16 +3,11 @@ use std::io;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf, StripPrefixError};
 
-pub fn is_symlink(path: &Path) -> io::Result<bool> {
-    fs::symlink_metadata(path).and_then(|md| Ok(md.file_type().is_symlink()))
-}
-
-pub fn sanitize_path(path: &mut Path) -> io::Result<PathBuf> {
-    if path.is_relative() {
-        fs::canonicalize(path)
-    } else {
-        Ok(path.to_path_buf())
-    }
+/// Wrapper for is_symlink for paths
+pub fn is_symlink(path: &Path) -> bool {
+    fs::symlink_metadata(path)
+        .map(|md| md.file_type().is_symlink())
+        .unwrap_or(false)
 }
 
 pub(crate) fn read_path(path: &Path) -> io::Result<String> {
