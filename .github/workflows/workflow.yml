@@ -1,4 +1,4 @@
-# NOTE: Built by following starship/starship as template
+# NOTE: Built by following starship/starship as template - Thank you!
 
 name: Main Workflow
 on:
@@ -123,3 +123,20 @@ jobs:
           jakeschurch/badm-test .
       - name: Run tests in Docker
         run: docker run --rm -v $(pwd):/src/badm jakeschurch/badm-test
+
+  # Publish crate to Crates.io
+  cargo_publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    name: Publish Cargo Package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+      - run: cargo login $CRATES_IO_TOKEN
+      - run: cargo publish
+    env:
+      CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
