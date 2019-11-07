@@ -136,6 +136,7 @@ jobs:
           profile: minimal
           toolchain: nightly
           override: true
+      - run: cargo doc --all --document-private-items --workspace
       - run: cargo login $CRATES_IO_TOKEN
       - run: cargo publish
     env:
