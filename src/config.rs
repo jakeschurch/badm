@@ -81,10 +81,10 @@ impl Config {
         };
 
         let config_file_name = ".badm.toml";
-        search_paths(
-            config_file_name,
-            vec![home_dir().unwrap(), config_dir().unwrap()],
-        )
+        search_paths(config_file_name, vec![
+            home_dir().unwrap(),
+            config_dir().unwrap(),
+        ])
     }
 
     pub fn write_toml_config(self) -> io::Result<()> {
