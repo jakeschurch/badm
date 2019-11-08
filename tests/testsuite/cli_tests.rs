@@ -80,7 +80,6 @@ fn run_stow_multiple_test() {
         assert!(expected_stow_path.exists());
     }
 }
-//
 // #[ignore]
 // #[test]
 // fn run_deploy_test() {
