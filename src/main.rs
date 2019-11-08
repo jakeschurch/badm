@@ -1,21 +1,20 @@
-// TODO: create integration tests for main
-
 #![allow(clippy::all)]
-// TEMP: since in large dev production
-#![allow(dead_code)]
 
+use glob::glob;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-#[macro_use]
-extern crate clap;
+#[macro_use] extern crate clap;
 
-use clap::{App, Arg};
+use clap::{App, Arg, ArgMatches};
+use failure::Error;
 
-use badm_core::{create_dotfile_symlink, Config};
+use badm_core::commands::{deploy_dotfile, restore_dotfile, store_dotfile};
+use badm_core::paths::is_symlink;
+use badm_core::{Config, DirScanner};
 
-fn main() -> io::Result<()> {
+fn main() -> Result<(), Error> {
     let set_dir_subcommand = App::new("set-dir")
         .about("set path of dotfiles directory")
         .version("1.0")
@@ -26,85 +25,143 @@ fn main() -> io::Result<()> {
                 .required(true),
         );
 
-    // TODO
-    // let stow_subcommand = App::new("stow");
-    // let unstow_subcommand = App::new("unstow");
-    // let remove_subcommand = App::new("remove");
-    // let deploy_subcommand = App::new("deploy");
+    let stow_subcommand = App::new("stow")
+        .about(
+            "store input files in the dotfiles directory, and replace the file's \
+             original path with a symlink",
+        )
+        .version("0.1")
+        .display_order(2)
+        .arg(
+            Arg::with_name("files")
+                .help("path of the file/files to be stored in the dotfiles directory")
+                .required(true)
+                .multiple(true),
+        );
+
+    let deploy_subcommand = App::new("deploy")
+        .about(
+            "for new configurations, create symlinks in directories relative to the \
+             dotfile's directory hierarchy. Directories to replicate the stored \
+             dotfile's directory structure will be created if not found.",
+        )
+        .version("0.1")
+        .display_order(3)
+        .arg(
+            Arg::with_name("dotfiles")
+                .help("stored dotfile/s to be deployed to system")
+                .multiple(true),
+        )
+        .arg(
+            Arg::with_name("all")
+                .help("deploy all stored dotfiles")
+                .long("all")
+                .conflicts_with("dotfiles"),
+        );
+
+    let restore_subcommand = App::new("restore")
+        .about("restore all dotfiles to their original locations")
+        .version("0.1")
+        .display_order(4)
+        .arg(
+            Arg::with_name("dotfiles")
+                .help("the dotfiles to restore to original locations")
+                .multiple(true)
+                .required(true),
+        );
 
     let matches = App::new("badm")
         .about(crate_description!())
         .version(crate_version!())
         .author(crate_authors!())
         .after_help("https://github.com/jakeschurch/badm")
-        .subcommands(vec![set_dir_subcommand])
+        .subcommands(vec![
+            set_dir_subcommand,
+            stow_subcommand,
+            deploy_subcommand,
+            restore_subcommand,
+        ])
         .get_matches();
 
     match matches.subcommand() {
         ("set-dir", Some(set_dir_matches)) => {
-            let value = set_dir_matches.value_of("directory").unwrap();
-            Config::set_dots_dir(value)?;
-        }
+            let dir_path = set_dir_matches.value_of("directory").unwrap();
+            set_dir(dir_path)?
+        },
+        ("stow", Some(stow_matches)) => stow(stow_matches)?,
+        ("deploy", Some(deploy_matches)) => deploy(deploy_matches)?,
+        ("restore", Some(restore_matches)) => restore(restore_matches)?,
         _ => unreachable!(),
     }
     Ok(())
 }
 
-fn deploy_dotfile_symlinks() -> io::Result<()> {
-    // find dotfiles dir
-    // TODO: Introduce custom errors
-    let dots_dir = Config::get_dots_dir().unwrap();
+fn set_dir<P: AsRef<Path>>(path: P) -> Result<(), Error> {
+    let path = path.as_ref().to_path_buf();
 
-    // iterate through and create vector of filenames
-    let entries = DirectoryScanner::new().get_entries(dots_dir.as_ref())?;
+    let set_path = Config::set_dots_dir(path)?;
 
-    // deploy each symlink
-    for entry in entries.into_iter() {
-        create_dotfile_symlink(&entry)?;
+    println! {"BADM dotfiles path has been set to: {:?}", set_path};
+    Ok(())
+}
+
+fn stow(values: &ArgMatches) -> io::Result<()> {
+    let mut input_paths = vec![];
+
+    // TODO: push up to own function
+    // prepare paths
+    for path in values.values_of("files").unwrap() {
+        let mut paths = glob(path)
+            .unwrap()
+            .filter_map(Result::ok)
+            .filter(|path| path.is_file() && !is_symlink(path))
+            .map(|path| {
+                if path.is_relative() {
+                    fs::canonicalize(path)
+                } else {
+                    Ok(path)
+                }
+            })
+            .filter_map(Result::ok)
+            .collect::<Vec<PathBuf>>();
+        input_paths.append(&mut paths);
+    }
+
+    for path in input_paths.into_iter() {
+        let dst_path = store_dotfile(&path)?;
+        deploy_dotfile(&dst_path, &path)?;
+    }
+    Ok(())
+}
+
+fn deploy(matches: &ArgMatches) -> io::Result<()> {
+    let dotfiles_dir = Config::get_dots_dir().unwrap();
+
+    let dotfiles = if matches.is_present("all") {
+        DirScanner::default()
+            .recursive()
+            .get_entries(&dotfiles_dir)?
+    } else {
+        matches
+            .values_of("dotfiles")
+            .unwrap()
+            .into_iter()
+            .map(|path| PathBuf::from(path))
+            .collect::<Vec<PathBuf>>()
+    };
+
+    for dotfile in dotfiles.into_iter() {
+        deploy_dotfile(&dotfile, &dotfiles_dir)?;
     }
 
     Ok(())
 }
 
-struct DirectoryScanner {
-    entries: Vec<PathBuf>,
-}
-
-impl DirectoryScanner {
-    pub fn new() -> Self {
-        Self {
-            entries: Vec::new(),
-        }
+fn restore(matches: &ArgMatches) -> io::Result<()> {
+    let dotfiles = matches.values_of("dotfiles").unwrap();
+    for dotfile in dotfiles.into_iter() {
+        let path = PathBuf::from(dotfile);
+        restore_dotfile(path)?;
     }
-
-    pub fn get_entries(&mut self, dir: &Path) -> io::Result<(Vec<PathBuf>)> {
-        self.collect_entries(dir)?;
-
-        self.entries = self
-            .entries
-            .iter_mut()
-            .map(|entry| fs::canonicalize(entry))
-            .filter_map(Result::ok)
-            .collect::<Vec<PathBuf>>();
-
-        Ok(self.entries.clone())
-    }
-
-    fn collect_entries(&mut self, dir: &Path) -> io::Result<()> {
-        if dir.is_dir() {
-            for entry in fs::read_dir(dir)? {
-                let entry = entry?;
-                let path = entry.path();
-
-                if path.is_dir() {
-                    if !path.ends_with(".git") {
-                        self.collect_entries(&path)?;
-                    }
-                } else {
-                    self.entries.push(path.into())
-                }
-            }
-        }
-        Ok(())
-    }
+    Ok(())
 }

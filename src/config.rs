@@ -1,44 +1,125 @@
-use std::fs::File;
+use std::convert::TryFrom;
+use std::fs::{self, File};
 use std::io;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
+use crate::errors::InputError;
 use dirs::{config_dir, home_dir};
 use serde_derive::{Deserialize, Serialize};
 use toml;
 
-// TODO: create a fs_utils file
-
-pub fn read_file<P: AsRef<Path>>(path: P) -> io::Result<String> {
-    let mut file = File::open(path.as_ref())?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
-    Ok(contents)
-}
-
-pub fn expand_tilde<P: AsRef<Path>>(path: P) -> io::Result<PathBuf> {
-    let mut path = path.as_ref();
-
-    if !path.starts_with("~") {
-        return Ok(path.to_path_buf());
-    };
-
-    path = path
-        .strip_prefix("~")
-        .expect("Could not strip tilde from path!");
-
-    Ok(home_dir().unwrap().join(path))
-}
-
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Config {
     pub directory: PathBuf,
 }
 
-impl Into<PathBuf> for Config {
-    fn into(self) -> PathBuf {
-        self.directory
+impl Config {
+    pub(crate) fn new<P: AsRef<Path>>(directory: P) -> Result<Self, InputError> {
+        let directory = directory.as_ref().to_path_buf();
+
+        if directory.is_dir() {
+            Ok(Self { directory })
+        } else {
+            Err(InputError::BadInput {
+                err: io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "Input to set dots directory is invalid",
+                ),
+            })
+        }
+    }
+
+    // REVIEW: how should we handle if a dotfiles directory is already set?
+    pub fn set_dots_dir(path: PathBuf) -> Result<PathBuf, InputError> {
+        if !path.exists() {
+            fs::create_dir_all(&path).expect("could not create path");
+        } else if !path.is_dir() {
+            return Err(InputError::BadInput {
+                err: io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "Input to set dots directory is invalid",
+                ),
+            });
+        };
+
+        let config = Config::new(&path)?;
+
+        config
+            .write_toml_config()
+            .expect("could not write toml config");
+        Ok(path)
+    }
+
+    pub fn get_dots_dir() -> Option<PathBuf> {
+        if let Some(config_path) = Config::get_config_file() {
+            let toml = crate::paths::read_path(&config_path).unwrap();
+
+            match Config::from_str(&toml) {
+                Ok(config) => Some(config.directory),
+
+                // not able to read config
+                Err(_) => None,
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Search $HOME and $XDG_CONFIG_HOME for badm config file path
+    fn get_config_file() -> Option<PathBuf> {
+        let search_paths = |file_name: &str, dirs_vec: Vec<PathBuf>| -> Option<PathBuf> {
+            for dir in dirs_vec.into_iter() {
+                let possible_file_path = dir.join(file_name);
+
+                if possible_file_path.exists() {
+                    return Some(possible_file_path);
+                };
+            }
+            None
+        };
+
+        let config_file_name = ".badm.toml";
+        search_paths(config_file_name, vec![
+            home_dir().unwrap(),
+            config_dir().unwrap(),
+        ])
+    }
+
+    pub fn write_toml_config(self) -> io::Result<()> {
+        // check to see if config file already exists, if not default to HOME
+        let config_file_path = match Config::get_config_file() {
+            Some(path) => path,
+            None => home_dir().unwrap().join(".badm.toml"),
+        };
+
+        let toml = toml::to_string(&self).unwrap();
+        let mut file = File::create(config_file_path)?;
+
+        file.write_all(&toml.into_bytes())?;
+        file.sync_data()?;
+
+        Ok(())
+    }
+}
+
+impl TryFrom<File> for Config {
+    type Error = InputError;
+    fn try_from(file: File) -> Result<Config, Self::Error> {
+        let mut file = file;
+
+        let contents = crate::paths::read_file(&mut file)?;
+
+        Ok(toml::from_str(&contents)?)
+    }
+}
+
+impl TryFrom<PathBuf> for Config {
+    type Error = InputError;
+    fn try_from(path: PathBuf) -> Result<Config, Self::Error> {
+        let file = File::open(path)?;
+        Config::try_from(file)
     }
 }
 
@@ -51,103 +132,29 @@ impl FromStr for Config {
     }
 }
 
-impl Config {
-    pub fn new(directory: PathBuf) -> Self {
-        Self { directory }
-    }
-
-    pub fn from_toml(toml: toml::value::Value) -> io::Result<Self> {
-        let config: Config = toml::from_str(&toml.to_string())?;
-        Ok(config)
-    }
-
-    pub fn get_dots_dir() -> Option<PathBuf> {
-        if let Some(config_path) = Config::get_config_file() {
-            let toml = read_file(config_path).unwrap();
-
-            match Config::from_str(&toml) {
-                Ok(config) => Some(config.directory),
-                // REVIEW: turn into Error?
-                // not able to read config
-                Err(_) => None,
-            }
-        } else {
-            None
-        }
-    }
-
-    /// Search $HOME and $XDG_CONFIG_HOME for badm config file path
-    fn get_config_file() -> Option<PathBuf> {
-        let config_file_name = ".badm.toml";
-
-        // TODO: make this cleaner
-        if home_dir().unwrap().join(config_file_name).exists() {
-            Some(home_dir().unwrap().join(config_file_name))
-        } else if config_dir().unwrap().join(config_file_name).exists() {
-            Some(config_dir().unwrap().join(config_file_name))
-        } else {
-            None
-        }
-    }
-
-    pub fn write_toml_config(self) -> io::Result<()> {
-        // check to see if config file already exists, if not default to HOME
-        let config_file_path = match Config::get_config_file() {
-            Some(path) => path,
-            None => home_dir().unwrap().join(".badm.toml"),
-        };
-
-        let toml = toml::to_string(&self).unwrap();
-        println!("{:?}", config_file_path);
-
-        // write to file
-        let mut file = File::create(&config_file_path)?;
-
-        file.write_all(&toml.into_bytes())?;
-
-        Ok(())
-    }
-
-    // REVIEW: how should we handle if a dotfiles directory is already set?
-    pub fn set_dots_dir<P: AsRef<Path>>(path: P) -> io::Result<()> {
-        let path = path.as_ref();
-
-        let dir_path = if path.starts_with("~") {
-            expand_tilde(path)?
-        } else if path.is_relative() {
-            path.canonicalize()?
-        } else {
-            path.to_path_buf()
-        };
-
-        let config = Config::new(dir_path);
-
-        config.write_toml_config()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use failure::Error;
     use std::fs;
-    use tempfile::tempdir;
 
     #[ignore]
     #[test]
-    fn set_dots_dir_test() -> io::Result<()> {
+    fn set_dots_dir_test() -> Result<(), Error> {
         let home_dir = home_dir().unwrap();
         if !home_dir.exists() {
-            fs::create_dir_all(&home_dir)?;
+            fs::create_dir_all(&home_dir).expect("could not create home dir");
         }
 
-        let dots_dir = tempdir()?.into_path();
-        Config::set_dots_dir(&dots_dir)?;
+        let dots_dir = home_dir.join(".dotfiles");
+        Config::set_dots_dir(dots_dir.clone())?;
 
-        // Load config into Config struct to ensure directory set is correct
-        let expected_config_path = home_dir.join(".badm.toml");
-        let toml = read_file(expected_config_path)?;
+        let toml = crate::paths::read_path(&home_dir.join(".badm.toml"))
+            .expect("could not read path");
 
-        let config: Config = toml::from_str(&toml)?;
+        // Read file contents
+        let config: Config =
+            toml::from_str(toml.as_str()).expect("could not convert toml");
         assert_eq!(config.directory, dots_dir);
 
         Ok(())
@@ -156,9 +163,24 @@ mod tests {
     #[ignore]
     #[test]
     fn write_toml_config_test() -> io::Result<()> {
-        let dir = tempdir()?.into_path();
-        let config = Config::new(dir);
+        let config_path = home_dir().unwrap().join(".badm.toml");
+
+        let dots_dir = home_dir().unwrap().join(".dotfiles");
+        let expected_config = Config {
+            directory: dots_dir,
+        };
+
+        let config = expected_config.clone();
         config.write_toml_config()?;
+
+        let actual_config = match Config::try_from(config_path) {
+            Ok(config) => config,
+            Err(_) => Config {
+                directory: PathBuf::from("/"),
+            },
+        };
+
+        assert_eq!(expected_config, actual_config);
 
         Ok(())
     }
