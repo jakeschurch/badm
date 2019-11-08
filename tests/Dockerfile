@@ -1,5 +1,5 @@
 FROM rust:1.38.0-slim
-ENV RUST_BACKTRACE=1
+ENV RUST_BACKTRACE="full"
 
 # create a new empty shell project
 RUN mkdir /src && chmod -R a+w /src
@@ -16,4 +16,4 @@ WORKDIR /src/badm
 COPY . .
 
 # "-Z unstable-options" is required for "--include-ignored"
-CMD ["cargo", "test", "--", "-Z", "unstable-options", "--include-ignored"]
+CMD ["cargo", "test", "--", "-Z", "unstable-options", "--include-ignored", "--nocapture"]

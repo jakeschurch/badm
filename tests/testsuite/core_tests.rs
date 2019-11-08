@@ -71,8 +71,6 @@ fn deploy_dotfile_test() -> io::Result<()> {
 
     badm_core::commands::deploy_dotfile(&dotfile_path, &expected_symlink_path)?;
 
-    println!("deploy ran successfully",);
-
     assert_eq!(fs::read_link(expected_symlink_path)?, dotfile_path);
 
     Ok(())

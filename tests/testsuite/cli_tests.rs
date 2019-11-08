@@ -5,7 +5,9 @@ use std::io;
 use std::path::PathBuf;
 use std::process::Command;
 
-use crate::common::{mock_dotfile_in, BADM_CONFIG, DOTFILES_DIR, HOME_DIR};
+use crate::common::{
+    mock_config_file, mock_dotfile_in, BADM_CONFIG, DOTFILES_DIR, HOME_DIR,
+};
 use crate::core_tests::STOW_DIR;
 
 use badm_core::Config;
@@ -65,11 +67,9 @@ fn run_stow_multiple_test() {
         input_path_vec.push(file);
     }
 
-    let glob = HOME_DIR.to_path_buf().join("*");
-
     mock_command()
         .arg("stow")
-        .arg(&glob)
+        .args(&input_path_vec)
         .output()
         .expect("failed to execute badm stow");
 
@@ -80,12 +80,33 @@ fn run_stow_multiple_test() {
         assert!(expected_stow_path.exists());
     }
 }
-// #[ignore]
-// #[test]
-// fn run_deploy_test() {
-//     mock_command().arg("deploy");
-// }
-//
+
+#[ignore]
+#[test]
+fn run_deploy_test() -> io::Result<()> {
+    mock_config_file()?;
+
+    let file = mock_dotfile_in(STOW_DIR.to_path_buf().join(".config"))
+        .expect("failed to mock dotfile");
+
+    let expected_deploy_path = HOME_DIR
+        .to_path_buf()
+        .join(".config")
+        .join(file.file_name().unwrap());
+
+    let output = mock_command()
+        .arg("deploy")
+        .arg(&file)
+        .output()
+        .expect("failed to execute badm deploy");
+
+    assert!(output.status.success());
+    assert!(file.exists());
+    assert_eq!(fs::read_link(expected_deploy_path).unwrap(), file);
+
+    Ok(())
+}
+
 // #[ignore]
 // #[test]
 // fn run_restore_test() {

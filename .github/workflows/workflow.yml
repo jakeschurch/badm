@@ -88,7 +88,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macOS-latest]
-        rust: [stable, nightly]
+        rust: [nightly]
     steps:
       # Checkout the branch being tested
       - uses: actions/checkout@v1
@@ -97,12 +97,12 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: nightly
           override: true
 
       - name: Run all tests
         env:
-          RUST_BACKTRACE: 1
+          RUST_BACKTRACE: "full"
         uses: actions-rs/cargo@v1
         with:
           command: test
