@@ -78,7 +78,7 @@ jobs:
           args: --all
 
   # Run tests on Linux and macOS
-  # NOTE: not supporting Windows aso of yet
+  # NOTE: not supporting Windows as of of yet
   # On both Rust stable and Rust nightly
   test:
     name: Test Suite
@@ -101,6 +101,8 @@ jobs:
           override: true
 
       - name: Run all tests
+        env:
+          RUST_BACKTRACE: 1
         uses: actions-rs/cargo@v1
         with:
           command: test
