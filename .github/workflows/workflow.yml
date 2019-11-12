@@ -106,7 +106,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: -- -Z unstable-options --include-ignored
+          args: -- -Z unstable-options --include-ignored --test-threads=1
 
   # Run the tests in the Docker image
   docker_test:

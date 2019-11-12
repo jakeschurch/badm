@@ -1,6 +1,6 @@
 [package]
 name = "badm"
-version = "0.4.2"
+version = "0.4.3"
 authors = ["Jake Schurch <jakeschurch@gmail.com>"]
 edition = "2018"
 repository = "https://github.com/jakeschurch/badm"
@@ -13,10 +13,6 @@ description = "But another dotfile manager."
 is-it-maintained-issue-resolution = { repository = "jakeschurch/badm" }
 is-it-maintained-open-issues = { repository = "jakeschurch/badm" }
 maintenance = { status = "actively-developed" }
-
-[lib]
-name = "badm_core"
-path = "src/lib.rs"
 
 [[bin]]
 name = "badm"
