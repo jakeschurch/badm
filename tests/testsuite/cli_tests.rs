@@ -10,7 +10,7 @@ use crate::common::{
 };
 use crate::core_tests::STOW_DIR;
 
-use badm_core::Config;
+use badm_core::{Config, FileHandler};
 
 #[cfg(not(windows))]
 const EXE_PATH: &str = "./target/debug/badm";
@@ -40,20 +40,25 @@ fn run_set_dir_test() -> io::Result<()> {
 
 #[ignore]
 #[test]
-fn run_stow_test() {
+fn run_stow_test() -> io::Result<()> {
+    mock_config_file()?;
+
     let file =
         mock_dotfile_in(HOME_DIR.to_path_buf()).expect("unable to mock input dotfile");
 
     let expected_stow_path = STOW_DIR.to_path_buf().join(&file.file_name().unwrap());
 
-    mock_command()
+    let output = mock_command()
         .arg("stow")
         .arg(&file)
         .output()
         .expect("failed to execute badm stow");
 
+    assert!(output.status.success());
     assert_eq!(fs::read_link(file).unwrap(), expected_stow_path);
     assert!(expected_stow_path.exists());
+
+    Ok(())
 }
 
 #[ignore]
@@ -105,6 +110,8 @@ fn run_deploy_test() -> io::Result<()> {
         .output()
         .expect("failed to execute badm deploy");
 
+    println!("{:?}", output);
+
     assert!(output.status.success());
     assert!(file.exists());
     assert_eq!(fs::read_link(expected_deploy_path).unwrap(), file);
@@ -112,8 +119,59 @@ fn run_deploy_test() -> io::Result<()> {
     Ok(())
 }
 
-// #[ignore]
-// #[test]
-// fn run_restore_test() {
-//     mock_command().arg("restore");
-// }
+#[ignore]
+#[test]
+fn run_restore_dotfile_test() -> io::Result<()> {
+    mock_config_file()?;
+
+    let dotfile =
+        mock_dotfile_in(STOW_DIR.to_path_buf()).expect("failed to mock dotfile");
+
+    let expected_restore_path =
+        HOME_DIR.to_path_buf().join(&dotfile.file_name().unwrap());
+
+    let output = mock_command()
+        .args(&[
+            "restore",
+            dotfile
+                .to_str()
+                .expect("could not create &str from dotfile"),
+        ])
+        .output()
+        .expect("failed to execute badm restore");
+
+    assert!(output.status.success());
+    assert!(!dotfile.exists());
+    assert!(expected_restore_path.exists());
+
+    Ok(())
+}
+
+#[ignore]
+#[test]
+fn run_restore_symlink_test() -> io::Result<()> {
+    mock_config_file()?;
+
+    let dotfile =
+        mock_dotfile_in(STOW_DIR.to_path_buf()).expect("failed to mock dotfile");
+    let expected_restore_path =
+        HOME_DIR.to_path_buf().join(&dotfile.file_name().unwrap());
+
+    badm_core::FileHandler::create_symlink(&dotfile, &expected_restore_path)?;
+
+    let output = mock_command()
+        .args(&[
+            "restore",
+            expected_restore_path
+                .to_str()
+                .expect("could not create &str from dotfile"),
+        ])
+        .output()
+        .expect("failed to execute badm restore");
+
+    assert!(output.status.success());
+    assert!(!dotfile.exists());
+    assert!(!badm_core::paths::is_symlink(&expected_restore_path));
+
+    Ok(())
+}
