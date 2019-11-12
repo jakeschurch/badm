@@ -176,10 +176,14 @@ fn deploy(values: &ArgMatches) -> io::Result<()> {
 }
 
 fn restore(matches: &ArgMatches) -> io::Result<()> {
-    let dotfiles = matches.values_of("dotfiles").unwrap();
+    let dotfiles: Vec<PathBuf> = matches
+        .values_of("dotfiles")
+        .unwrap()
+        .map(|path| PathBuf::from(path))
+        .collect();
+
     for dotfile in dotfiles.into_iter() {
-        let path = PathBuf::from(dotfile);
-        restore_dotfile(path)?;
+        restore_dotfile(dotfile)?;
     }
     Ok(())
 }

@@ -6,11 +6,10 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use crate::common::{
-    mock_config_file, mock_dotfile_in, BADM_CONFIG, DOTFILES_DIR, HOME_DIR,
+    badm_config, dotfiles_dir, home_dir, mock_config_file, mock_dotfile_in, stow_dir,
 };
-use crate::core_tests::STOW_DIR;
 
-use badm_core::{Config, FileHandler};
+use badm_core::Config;
 
 #[cfg(not(windows))]
 const EXE_PATH: &str = "./target/debug/badm";
@@ -22,19 +21,19 @@ fn mock_command() -> Command {
 #[ignore]
 #[test]
 fn run_set_dir_test() -> io::Result<()> {
-    if BADM_CONFIG.exists() {
-        fs::remove_file(BADM_CONFIG.to_path_buf())?;
+    if badm_config().exists() {
+        fs::remove_file(badm_config())?;
     };
 
     mock_command()
         .arg("set-dir")
-        .arg(DOTFILES_DIR.to_path_buf())
+        .arg(dotfiles_dir())
         .output()
         .expect("failed to execute badm set-dir");
 
     let actual_dotfiles_dir = Config::get_dots_dir().unwrap();
 
-    assert_eq!(actual_dotfiles_dir, DOTFILES_DIR.to_path_buf());
+    assert_eq!(actual_dotfiles_dir, dotfiles_dir());
     Ok(())
 }
 
@@ -43,10 +42,9 @@ fn run_set_dir_test() -> io::Result<()> {
 fn run_stow_test() -> io::Result<()> {
     mock_config_file()?;
 
-    let file =
-        mock_dotfile_in(HOME_DIR.to_path_buf()).expect("unable to mock input dotfile");
+    let file = mock_dotfile_in(home_dir()).expect("unable to mock input dotfile");
 
-    let expected_stow_path = STOW_DIR.to_path_buf().join(&file.file_name().unwrap());
+    let expected_stow_path = stow_dir().join(&file.file_name().unwrap());
 
     let output = mock_command()
         .arg("stow")
@@ -69,8 +67,7 @@ fn run_stow_multiple_test() -> io::Result<()> {
     let mut input_path_vec: Vec<PathBuf> = vec![];
 
     for _ in 0..4 {
-        let file = mock_dotfile_in(HOME_DIR.to_path_buf())
-            .expect("unable to mock input dotfile");
+        let file = mock_dotfile_in(home_dir()).expect("unable to mock input dotfile");
         input_path_vec.push(file);
     }
 
@@ -82,7 +79,7 @@ fn run_stow_multiple_test() -> io::Result<()> {
     assert!(output.status.success());
 
     for file in input_path_vec.iter() {
-        let expected_stow_path = STOW_DIR.to_path_buf().join(file.file_name().unwrap());
+        let expected_stow_path = stow_dir().join(file.file_name().unwrap());
 
         assert_eq!(fs::read_link(file).unwrap(), expected_stow_path);
         assert!(expected_stow_path.exists());
@@ -96,13 +93,10 @@ fn run_stow_multiple_test() -> io::Result<()> {
 fn run_deploy_test() -> io::Result<()> {
     mock_config_file()?;
 
-    let file = mock_dotfile_in(STOW_DIR.to_path_buf().join(".config"))
-        .expect("failed to mock dotfile");
+    let file =
+        mock_dotfile_in(stow_dir().join(".config")).expect("failed to mock dotfile");
 
-    let expected_deploy_path = HOME_DIR
-        .to_path_buf()
-        .join(".config")
-        .join(file.file_name().unwrap());
+    let expected_deploy_path = home_dir().join(".config").join(file.file_name().unwrap());
 
     let output = mock_command()
         .arg("deploy")
@@ -124,19 +118,12 @@ fn run_deploy_test() -> io::Result<()> {
 fn run_restore_dotfile_test() -> io::Result<()> {
     mock_config_file()?;
 
-    let dotfile =
-        mock_dotfile_in(STOW_DIR.to_path_buf()).expect("failed to mock dotfile");
+    let dotfile = mock_dotfile_in(stow_dir()).expect("failed to mock dotfile");
 
-    let expected_restore_path =
-        HOME_DIR.to_path_buf().join(&dotfile.file_name().unwrap());
+    let expected_restore_path = home_dir().join(&dotfile.file_name().unwrap());
 
     let output = mock_command()
-        .args(&[
-            "restore",
-            dotfile
-                .to_str()
-                .expect("could not create &str from dotfile"),
-        ])
+        .args(&["restore", dotfile.to_str().unwrap()])
         .output()
         .expect("failed to execute badm restore");
 
@@ -152,26 +139,21 @@ fn run_restore_dotfile_test() -> io::Result<()> {
 fn run_restore_symlink_test() -> io::Result<()> {
     mock_config_file()?;
 
-    let dotfile =
-        mock_dotfile_in(STOW_DIR.to_path_buf()).expect("failed to mock dotfile");
-    let expected_restore_path =
-        HOME_DIR.to_path_buf().join(&dotfile.file_name().unwrap());
+    let dotfile = mock_dotfile_in(stow_dir()).expect("failed to mock dotfile");
+    let expected_restore_path = home_dir().join(&dotfile.file_name().unwrap());
 
     badm_core::FileHandler::create_symlink(&dotfile, &expected_restore_path)?;
 
     let output = mock_command()
-        .args(&[
-            "restore",
-            expected_restore_path
-                .to_str()
-                .expect("could not create &str from dotfile"),
-        ])
+        .args(&["restore", expected_restore_path.to_str().unwrap()])
         .output()
         .expect("failed to execute badm restore");
 
-    assert!(output.status.success());
+    println!("{:?}", output.status);
+
     assert!(!dotfile.exists());
     assert!(!badm_core::paths::is_symlink(&expected_restore_path));
+    assert!(output.status.success());
 
     Ok(())
 }
