@@ -14,6 +14,21 @@ use badm_core::commands::{deploy_dotfile, restore_dotfile, store_dotfile};
 use badm_core::paths::is_symlink;
 use badm_core::{Config, DirScanner};
 
+fn validate_paths(paths: Vec<PathBuf>) -> Vec<PathBuf> {
+    paths
+        .into_iter()
+        .filter(|path| path.is_file() && !is_symlink(path))
+        .map(|path| {
+            if path.is_relative() {
+                fs::canonicalize(path)
+            } else {
+                Ok(path)
+            }
+        })
+        .filter_map(Result::ok)
+        .collect::<Vec<PathBuf>>()
+}
+
 fn main() -> Result<(), Error> {
     let set_dir_subcommand = App::new("set-dir")
         .about("set path of dotfiles directory")
@@ -50,13 +65,15 @@ fn main() -> Result<(), Error> {
         .arg(
             Arg::with_name("dotfiles")
                 .help("stored dotfile/s to be deployed to system")
+                .required(true)
                 .multiple(true),
         )
         .arg(
             Arg::with_name("all")
                 .help("deploy all stored dotfiles")
                 .long("all")
-                .conflicts_with("dotfiles"),
+                .conflicts_with("dotfiles")
+                .required(true),
         );
 
     let restore_subcommand = App::new("restore")
@@ -111,20 +128,10 @@ fn stow(values: &ArgMatches) -> io::Result<()> {
     // TODO: push up to own function
     // prepare paths
     for path in values.values_of("files").unwrap() {
-        let mut paths = glob(path)
-            .unwrap()
-            .filter_map(Result::ok)
-            .filter(|path| path.is_file() && !is_symlink(path))
-            .map(|path| {
-                if path.is_relative() {
-                    fs::canonicalize(path)
-                } else {
-                    Ok(path)
-                }
-            })
-            .filter_map(Result::ok)
-            .collect::<Vec<PathBuf>>();
-        input_paths.append(&mut paths);
+        let paths: Vec<PathBuf> = glob(path).unwrap().filter_map(Result::ok).collect();
+        let mut path_vec = validate_paths(paths);
+
+        input_paths.append(&mut path_vec);
     }
 
     for path in input_paths.into_iter() {
@@ -134,34 +141,49 @@ fn stow(values: &ArgMatches) -> io::Result<()> {
     Ok(())
 }
 
-fn deploy(matches: &ArgMatches) -> io::Result<()> {
+fn deploy(values: &ArgMatches) -> io::Result<()> {
+    println!("inside of deploy");
     let dotfiles_dir = Config::get_dots_dir().unwrap();
 
-    let dotfiles = if matches.is_present("all") {
+    let dotfiles = if values.is_present("all") {
         DirScanner::default()
             .recursive()
             .get_entries(&dotfiles_dir)?
     } else {
-        matches
+        let paths: Vec<PathBuf> = values
             .values_of("dotfiles")
             .unwrap()
-            .into_iter()
             .map(|path| PathBuf::from(path))
-            .collect::<Vec<PathBuf>>()
+            .collect();
+
+        validate_paths(paths)
     };
 
     for dotfile in dotfiles.into_iter() {
-        deploy_dotfile(&dotfile, &dotfiles_dir)?;
+        println!("{:?}", dotfile);
+
+        let dst_path = PathBuf::from("/").join(
+            dotfile
+                .strip_prefix(&dotfiles_dir)
+                .expect("could not strip dotfile path"),
+        );
+        println!("dst path: {:?}", dst_path);
+
+        deploy_dotfile(&dotfile, &dst_path)?;
     }
 
     Ok(())
 }
 
 fn restore(matches: &ArgMatches) -> io::Result<()> {
-    let dotfiles = matches.values_of("dotfiles").unwrap();
+    let dotfiles: Vec<PathBuf> = matches
+        .values_of("dotfiles")
+        .unwrap()
+        .map(|path| PathBuf::from(path))
+        .collect();
+
     for dotfile in dotfiles.into_iter() {
-        let path = PathBuf::from(dotfile);
-        restore_dotfile(path)?;
+        restore_dotfile(dotfile)?;
     }
     Ok(())
 }

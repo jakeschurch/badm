@@ -2,22 +2,32 @@ use std::fs;
 use std::io;
 use std::path::PathBuf;
 
-use dirs::home_dir;
-use once_cell::sync::Lazy;
 use tempfile::Builder;
 
 use badm_core::{self, Config};
 
-pub static HOME_DIR: Lazy<PathBuf> = Lazy::new(|| home_dir().unwrap());
-pub static DOTFILES_DIR: Lazy<PathBuf> = Lazy::new(|| HOME_DIR.join(".dotfiles"));
-pub static BADM_CONFIG: Lazy<PathBuf> = Lazy::new(|| HOME_DIR.join(".badm.toml"));
+pub fn home_dir() -> PathBuf {
+    dirs::home_dir().unwrap()
+}
+
+pub fn dotfiles_dir() -> PathBuf {
+    home_dir().join(".dotfiles")
+}
+
+pub fn stow_dir() -> PathBuf {
+    badm_core::paths::join_full_paths(&dotfiles_dir(), &home_dir()).unwrap()
+}
+
+pub fn badm_config() -> PathBuf {
+    home_dir().join(".badm.toml")
+}
 
 pub fn mock_config_file() -> io::Result<()> {
-    if BADM_CONFIG.to_path_buf().exists() {
+    if badm_config().exists() {
         Ok(())
     } else {
         let config = Config {
-            directory: DOTFILES_DIR.to_path_buf(),
+            directory: dotfiles_dir(),
         };
         config.write_toml_config()
     }
