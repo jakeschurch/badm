@@ -58,7 +58,9 @@ fn run_stow_test() {
 
 #[ignore]
 #[test]
-fn run_stow_multiple_test() {
+fn run_stow_multiple_test() -> io::Result<()> {
+    mock_config_file()?;
+
     let mut input_path_vec: Vec<PathBuf> = vec![];
 
     for _ in 0..4 {
@@ -67,11 +69,12 @@ fn run_stow_multiple_test() {
         input_path_vec.push(file);
     }
 
-    mock_command()
+    let output = mock_command()
         .arg("stow")
         .args(&input_path_vec)
         .output()
         .expect("failed to execute badm stow");
+    assert!(output.status.success());
 
     for file in input_path_vec.iter() {
         let expected_stow_path = STOW_DIR.to_path_buf().join(file.file_name().unwrap());
@@ -79,6 +82,8 @@ fn run_stow_multiple_test() {
         assert_eq!(fs::read_link(file).unwrap(), expected_stow_path);
         assert!(expected_stow_path.exists());
     }
+
+    Ok(())
 }
 
 #[ignore]
