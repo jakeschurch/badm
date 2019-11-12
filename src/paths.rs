@@ -1,3 +1,4 @@
+//! Includes paths/fs-specific helper functions.
 use std::fs::{self, File};
 use std::io;
 use std::io::prelude::*;

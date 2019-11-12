@@ -10,8 +10,10 @@ use dirs::{config_dir, home_dir};
 use serde_derive::{Deserialize, Serialize};
 use toml;
 
+/// Handles and saves configuration variables between application calls.
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Config {
+    /// Path of dotfiles directory.
     pub directory: PathBuf,
 }
 
@@ -32,6 +34,9 @@ impl Config {
     }
 
     // REVIEW: how should we handle if a dotfiles directory is already set?
+    /// Sets arg `path` at dotfiles directory, and writes TOML config file.
+    ///
+    /// If path is not available it will try to be created.
     pub fn set_dots_dir(path: PathBuf) -> Result<PathBuf, InputError> {
         if !path.exists() {
             fs::create_dir_all(&path).expect("could not create path");
@@ -52,6 +57,7 @@ impl Config {
         Ok(path)
     }
 
+    /// If config file `.badm.toml` exists, get dotfiles directory path.
     pub fn get_dots_dir() -> Option<PathBuf> {
         if let Some(config_path) = Config::get_config_file() {
             let toml = crate::paths::read_path(&config_path).unwrap();
@@ -63,7 +69,7 @@ impl Config {
         }
     }
 
-    /// Search $HOME and $XDG_CONFIG_HOME for badm config file path
+    /// Search $HOME and $XDG_CONFIG_HOME for config file path.
     fn get_config_file() -> Option<PathBuf> {
         let search_paths = |file_name: &str, dirs_vec: Vec<PathBuf>| -> Option<PathBuf> {
             for dir in dirs_vec.into_iter() {
@@ -83,6 +89,10 @@ impl Config {
         ])
     }
 
+    /// Save configuration variables to config file `.badm.toml`. If file cannot be found
+    /// it will be written to $HOME.
+    ///
+    /// Valid locations for file location include: $HOME and $XDG_CONFIG_HOME.
     pub fn write_toml_config(self) -> io::Result<()> {
         // check to see if config file already exists, if not default to HOME
         let config_file_path = match Config::get_config_file() {

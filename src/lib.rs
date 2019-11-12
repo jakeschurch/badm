@@ -1,4 +1,56 @@
-//! badm is a command-line tool use to store dotfiles, or configuration files.
+//! `badm` is a tool that stores your configuration files, or
+//! [dotfiles](https://en.wikipedia.org/wiki/Hidden_file_and_hidden_directory), in a directory that replicates the directory hierarchy of the
+//! dotfiles' original path, and creates symlinks to their original paths. This creates a
+//! standardized and systematic approach for managing, deploying, and sharing dotfiles
+//! among different systems and users.
+//!
+//! badm is ultimately "But Another Dotfiles Manager".
+//!
+//! # Examples
+//!
+//! - ferris has created a directory to store their dotfiles at `~/.dots`
+//! - `badm set-dir ~/.dots` sets the BADM dotfiles dir at `~/.dots`
+//! - badm will search for a badm config file at one of the two valid locations: `$HOME`
+//!   and `$XDG_CONFIG_HOME`. If the config file not found, badm will create it under
+//!   `$HOME`
+//!
+//! <pre>
+//! /home
+//! └── ferris
+//!     └── .dots
+//!         ├── .badm.toml
+//!         └── .gitconfig
+//! </pre>
+//!
+//!
+//! - to store `~/.gitconfig` as a dotfile, ferris runs `badm stow ~/.gitconfig`
+//!   _(relative paths work as well)_
+//! - badm replicates the path of the dotfile under the `~/.dots` directory
+//! - the dotfile is moved to this new path in the set dotfiles directory and symlinked at
+//!   its original path which points to its new path
+//!
+//! <pre>
+//! /home
+//! └── ferris
+//!     ├── .badm.toml
+//!     ├── .dots
+//!     │   └── home
+//!     │       └── ferris
+//!     │           └── .gitconfig
+//!     └── .gitconfig -> /home/ferris/.dots/home/ferris/.gitconfig
+//! </pre>
+//!
+//! # Commands
+//!
+//! - `badm set-dir <DIRECTORY>` - set dotfiles directory location, if the location is not
+//!   created BADM has the ability to create one for you
+//! - `badm stow <FILE>` - store a file in the dotfiles directory, create a symlink at the
+//!   original source of the stowed file.
+//! - `badm deploy <FILE>` - for new configurations, create symlinks in directories
+//!   relative to the dotfile's directory hierarchy. Directories to replicate the stored
+//!   dotfile's directory structure will be created if not found.
+//! - `badm restore <FILE>` - restore the stored file from the dotfiles directory and
+//!   replace the symlink with the original file
 
 #![allow(clippy::all)]
 // #![deny(missing_docs)]
@@ -20,12 +72,18 @@ use std::path::{Path, PathBuf};
 
 // TODO: create dotfile struct
 
+/// Struct used to traverse directories and collect entries located within.
 pub struct DirScanner {
     entries: Vec<PathBuf>,
     recursive: bool,
 }
 
 impl DirScanner {
+    /// Given a directory, traverse path and get entries located within `dir`.
+    /// If the [`DirScanner::recursive`] method is not called before get_entries, it will
+    /// only traverse one level below.
+    ///
+    /// [`DirScanner::recursive`]: struct.DirScanner.html/#method.recursive
     pub fn get_entries(mut self, dir: &Path) -> io::Result<Vec<PathBuf>> {
         self.collect_entries(dir)?;
 
@@ -52,6 +110,7 @@ impl DirScanner {
         }
     }
 
+    /// Builder method to set recursive flag to `true` when scanning directory.
     pub fn recursive(mut self) -> Self {
         self.recursive = true;
         self
@@ -95,7 +154,7 @@ impl FileHandler {
         FileHandler::create_symlink(dst, src)
     }
 
-    /// Read file at path src and write to created/truncated file at path dst
+    /// Read file at path src and write to created/truncated file at path dst.
     pub fn move_file(src: &Path, dst: &Path) -> io::Result<()> {
         // read file path to String
         let contents = crate::paths::read_path(src)?;
@@ -111,8 +170,11 @@ impl FileHandler {
 
     /// Create a symlink at "dst" pointing to "src."
     ///
-    /// For Unix platforms, std::os::unix::fs::symlink is used to create
-    /// symlinks. For Windows, std::os::windows::fs::symlink_file is used.
+    /// For Unix platforms, [`std::os::unix::fs::symlink`] is used to create
+    /// symlinks. For Windows, [`std::os::windows::fs::symlink_file`] is used.
+    ///
+    /// [`std::os::unix::fs::symlink`]: std/os/unix/fs/fn.symlink.html
+    /// [`std::os::windows::fs::symlink_file`]: std/os/windows/fs/fn.symlink_file.html
     pub fn create_symlink(src: &Path, dst: &Path) -> io::Result<()> {
         #[cfg(not(target_os = "windows"))] use std::os::unix::fs::symlink;
 

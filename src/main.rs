@@ -125,8 +125,6 @@ fn set_dir<P: AsRef<Path>>(path: P) -> Result<(), Error> {
 fn stow(values: &ArgMatches) -> io::Result<()> {
     let mut input_paths = vec![];
 
-    // TODO: push up to own function
-    // prepare paths
     for path in values.values_of("files").unwrap() {
         let paths: Vec<PathBuf> = glob(path).unwrap().filter_map(Result::ok).collect();
         let mut path_vec = validate_paths(paths);
