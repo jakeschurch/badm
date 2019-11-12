@@ -27,7 +27,7 @@ pub(crate) fn read_file(file: &mut File) -> io::Result<String> {
 /// This behavior is an anti-use case of [`PathBuf::join`], but is valid for the need to
 /// replicate directory paths containing root within others.
 ///
-/// [`PathBuf`::join]: struct.PathBuf.html#method.join
+/// [`PathBuf::join`]: std/path/struct.PathBuf.html#method.join
 ///
 /// # Examples
 ///
