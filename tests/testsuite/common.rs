@@ -4,7 +4,8 @@ use std::path::PathBuf;
 
 use tempfile::Builder;
 
-use badm_core::{self, Config};
+use badm::paths;
+use badm::{self, Config};
 
 pub fn home_dir() -> PathBuf {
     dirs::home_dir().unwrap()
@@ -15,7 +16,7 @@ pub fn dotfiles_dir() -> PathBuf {
 }
 
 pub fn stow_dir() -> PathBuf {
-    badm_core::paths::join_full_paths(&dotfiles_dir(), &home_dir()).unwrap()
+    paths::join_full_paths(&dotfiles_dir(), &home_dir()).unwrap()
 }
 
 pub fn badm_config() -> PathBuf {
