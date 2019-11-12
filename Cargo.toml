@@ -1,6 +1,6 @@
 [package]
 name = "badm"
-version = "0.4.3"
+version = "0.5.0"
 authors = ["Jake Schurch <jakeschurch@gmail.com>"]
 edition = "2018"
 repository = "https://github.com/jakeschurch/badm"
