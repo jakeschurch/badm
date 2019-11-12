@@ -32,7 +32,7 @@ pub(crate) fn read_file(file: &mut File) -> io::Result<String> {
 /// # Examples
 ///
 /// ```
-/// use badm_core::paths::join_full_paths;
+/// use badm::paths::join_full_paths;
 /// use std::path::PathBuf;
 ///
 /// assert_eq!(
