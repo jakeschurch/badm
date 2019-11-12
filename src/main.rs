@@ -10,14 +10,14 @@ use std::path::{Path, PathBuf};
 use clap::{App, Arg, ArgMatches};
 use failure::Error;
 
-use badm_core::commands::{deploy_dotfile, restore_dotfile, store_dotfile};
-use badm_core::paths::is_symlink;
-use badm_core::{Config, DirScanner};
+use badm::commands;
+use badm::paths;
+use badm::{Config, DirScanner};
 
 fn validate_paths(paths: Vec<PathBuf>) -> Vec<PathBuf> {
     paths
         .into_iter()
-        .filter(|path| path.is_file() && !is_symlink(path))
+        .filter(|path| path.is_file() && !paths::is_symlink(path))
         .map(|path| {
             if path.is_relative() {
                 fs::canonicalize(path)
@@ -135,8 +135,8 @@ fn stow(values: &ArgMatches) -> io::Result<()> {
     }
 
     for path in input_paths.into_iter() {
-        let dst_path = store_dotfile(&path)?;
-        deploy_dotfile(&dst_path, &path)?;
+        let dst_path = commands::store_dotfile(&path)?;
+        commands::deploy_dotfile(&dst_path, &path)?;
     }
     Ok(())
 }
@@ -169,7 +169,7 @@ fn deploy(values: &ArgMatches) -> io::Result<()> {
         );
         println!("dst path: {:?}", dst_path);
 
-        deploy_dotfile(&dotfile, &dst_path)?;
+        commands::deploy_dotfile(&dotfile, &dst_path)?;
     }
 
     Ok(())
@@ -183,7 +183,7 @@ fn restore(matches: &ArgMatches) -> io::Result<()> {
         .collect();
 
     for dotfile in dotfiles.into_iter() {
-        restore_dotfile(dotfile)?;
+        commands::restore_dotfile(dotfile)?;
     }
     Ok(())
 }
