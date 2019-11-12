@@ -56,12 +56,8 @@ impl Config {
         if let Some(config_path) = Config::get_config_file() {
             let toml = crate::paths::read_path(&config_path).unwrap();
 
-            match Config::from_str(&toml) {
-                Ok(config) => Some(config.directory),
-
-                // not able to read config
-                Err(_) => None,
-            }
+            let config: Config = toml::from_str(&toml).expect("Not able to read config!");
+            Some(config.directory)
         } else {
             None
         }

@@ -71,12 +71,11 @@ fn run_stow_multiple_test() -> io::Result<()> {
         input_path_vec.push(file);
     }
 
-    let output = mock_command()
+    mock_command()
         .arg("stow")
         .args(&input_path_vec)
         .output()
         .expect("failed to execute badm stow");
-    assert!(output.status.success());
 
     for file in input_path_vec.iter() {
         let expected_stow_path = stow_dir().join(file.file_name().unwrap());
@@ -98,15 +97,12 @@ fn run_deploy_test() -> io::Result<()> {
 
     let expected_deploy_path = home_dir().join(".config").join(file.file_name().unwrap());
 
-    let output = mock_command()
+    mock_command()
         .arg("deploy")
         .arg(&file)
         .output()
         .expect("failed to execute badm deploy");
 
-    println!("{:?}", output);
-
-    assert!(output.status.success());
     assert!(file.exists());
     assert_eq!(fs::read_link(expected_deploy_path).unwrap(), file);
 
@@ -122,12 +118,11 @@ fn run_restore_dotfile_test() -> io::Result<()> {
 
     let expected_restore_path = home_dir().join(&dotfile.file_name().unwrap());
 
-    let output = mock_command()
+    mock_command()
         .args(&["restore", dotfile.to_str().unwrap()])
         .output()
         .expect("failed to execute badm restore");
 
-    assert!(output.status.success());
     assert!(!dotfile.exists());
     assert!(expected_restore_path.exists());
 
@@ -144,16 +139,13 @@ fn run_restore_symlink_test() -> io::Result<()> {
 
     badm_core::FileHandler::create_symlink(&dotfile, &expected_restore_path)?;
 
-    let output = mock_command()
+    mock_command()
         .args(&["restore", expected_restore_path.to_str().unwrap()])
         .output()
         .expect("failed to execute badm restore");
 
-    println!("{:?}", output.status);
-
     assert!(!dotfile.exists());
     assert!(!badm_core::paths::is_symlink(&expected_restore_path));
-    assert!(output.status.success());
 
     Ok(())
 }

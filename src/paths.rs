@@ -53,3 +53,27 @@ pub fn join_full_paths(
     };
     Ok(path_1.join(path_2))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile;
+
+    #[test]
+    fn is_symlink_test() -> io::Result<()> {
+        // mock files
+        let builder = tempfile::Builder::new();
+
+        let dir = builder.tempdir()?.into_path();
+        let (_, file) = builder.tempfile_in(&dir)?.keep()?;
+        let symlink_dst = dir.join("symlink_dst");
+
+        crate::FileHandler::create_symlink(&file, &symlink_dst)?;
+
+        assert!(symlink_dst.exists());
+
+        assert!(is_symlink(&symlink_dst));
+
+        Ok(())
+    }
+}
