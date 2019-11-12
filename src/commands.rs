@@ -10,41 +10,39 @@ use crate::FileHandler;
 
 /// Take input from file at path and store in set dotfiles directory.
 pub fn store_dotfile(path: &Path) -> io::Result<PathBuf> {
-    // create destination path
-    let dots_dir = match Config::get_dots_dir() {
-        Some(dir) => dir,
-        None => {
-            let err = io::Error::new(
-                io::ErrorKind::NotFound,
-                "Not able to complete operation because BADM_DIR was not set. Please \
-                 run `badm set-dir=<DIR> first.`",
-            );
-            return Err(err);
-        },
-    };
+    if let Some(dots_dir) = Config::get_dots_dir() {
+        // create destination path
+        let dst_path = join_full_paths(&dots_dir, &path).unwrap();
 
-    let dst_path = join_full_paths(&dots_dir, &path).unwrap();
+        // if symlink already exists and points to src file, early return
+        if dst_path.exists() && fs::read_link(&dst_path)? == path {
+            return Ok(dst_path);
+        };
 
-    // if symlink already exists and points to src file, early return
-    if dst_path.exists() && fs::read_link(&dst_path)? == path {
-        return Ok(dst_path);
-    };
+        // create directory if not available
+        let dst_dir = dst_path.parent().unwrap();
 
-    // create directory if not available
-    let dst_dir = dst_path.parent().unwrap();
+        if !dst_dir.exists() {
+            fs::create_dir_all(dst_dir)?;
+        };
 
-    if !dst_dir.exists() {
-        fs::create_dir_all(dst_dir)?;
-    };
+        // move dotfile to dotfiles directory
+        FileHandler::move_file(&path, &dst_path)?;
 
-    // move dotfile to dotfiles directory
-    FileHandler::move_file(&path, &dst_path)?;
-
-    Ok(dst_path)
+        Ok(dst_path)
+    } else {
+        let err = io::Error::new(
+            io::ErrorKind::NotFound,
+            "Not able to complete operation because BADM_DIR was not set. Please run \
+             `badm set-dir=<DIR> first.`",
+        );
+        Err(err)
+    }
 }
 
-/// Dotfile is removed from the set dotfiles directory and moved to its symlink location.
-/// The input can either be a dotfile's symlink path or the dotfile path itself.
+/// Dotfile is removed from set dotfiles directory and moved to its symlink location.
+/// The input can either be a dotfile's symlink path or the path of the dotfile itself.
+///
 /// Returns destination path.
 pub fn restore_dotfile(path: PathBuf) -> io::Result<PathBuf> {
     // get src and dst paths
@@ -116,7 +114,7 @@ pub fn restore_dotfile(path: PathBuf) -> io::Result<PathBuf> {
 ///
 /// Directories to replicate the stored dotfile's directory structure will be created if
 /// not found.
-// REVIEW: not enough checks - ensure valid entry
+// REVIEW: not enough checks - need to ensure valid entry.
 pub fn deploy_dotfile(src: &Path, dst: &Path) -> io::Result<()> {
     // if symlink already exists and points to src file, early return
     if dst.exists() && fs::read_link(&dst)? == src {

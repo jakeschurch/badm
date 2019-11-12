@@ -4,7 +4,9 @@ use std::fs;
 use std::io;
 use std::path::PathBuf;
 
-use badm_core::{self, FileHandler};
+use badm::commands;
+use badm::paths;
+use badm::{self, FileHandler};
 
 use crate::common::{
     dotfiles_dir, home_dir, mock_config_file, mock_dotfile_in, stow_dir,
@@ -19,7 +21,7 @@ fn store_dotfiles_test() -> io::Result<()> {
 
     let expected_stow_path = stow_dir().join(dotfile_path.file_name().unwrap());
 
-    let stow_path = badm_core::commands::store_dotfile(&dotfile_path)?;
+    let stow_path = commands::store_dotfile(&dotfile_path)?;
 
     assert!(expected_stow_path.exists());
     assert_eq!(expected_stow_path, stow_path);
@@ -41,9 +43,9 @@ fn restore_dotfile_test() -> io::Result<()> {
     fs::create_dir_all(symlink_path.parent().unwrap())?;
     FileHandler::create_symlink(&dotfile_path, &symlink_path)?;
 
-    let actual_dst_path = badm_core::commands::restore_dotfile(dotfile_path)?;
+    let actual_dst_path = commands::restore_dotfile(dotfile_path)?;
 
-    assert!(!badm_core::paths::is_symlink(&symlink_path));
+    assert!(!paths::is_symlink(&symlink_path));
     assert_eq!(actual_dst_path, symlink_path);
 
     Ok(())
@@ -65,7 +67,7 @@ fn deploy_dotfile_test() -> io::Result<()> {
 
     let expected_symlink_path = PathBuf::from("/").join(stripped_dotfile_path);
 
-    badm_core::commands::deploy_dotfile(&dotfile_path, &expected_symlink_path)?;
+    commands::deploy_dotfile(&dotfile_path, &expected_symlink_path)?;
 
     assert_eq!(fs::read_link(expected_symlink_path)?, dotfile_path);
 

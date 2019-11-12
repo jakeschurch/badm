@@ -1,5 +1,6 @@
 use std::io;
 
+#[allow(missing_docs)]
 #[derive(Debug, Fail)]
 pub enum InputError {
     #[fail(display = "Could not parse toml: {:?}", err)]
@@ -9,13 +10,13 @@ pub enum InputError {
 }
 
 impl From<io::Error> for InputError {
-    fn from(err: io::Error) -> InputError {
-        InputError::BadInput { err }
+    fn from(err: io::Error) -> Self {
+        Self::BadInput { err }
     }
 }
 
 impl From<toml::de::Error> for InputError {
-    fn from(err: toml::de::Error) -> InputError {
-        InputError::InvalidToml { err }
+    fn from(err: toml::de::Error) -> Self {
+        Self::InvalidToml { err }
     }
 }

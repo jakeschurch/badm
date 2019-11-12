@@ -9,7 +9,8 @@ use crate::common::{
     badm_config, dotfiles_dir, home_dir, mock_config_file, mock_dotfile_in, stow_dir,
 };
 
-use badm_core::Config;
+use badm::paths;
+use badm::{Config, FileHandler};
 
 #[cfg(not(windows))]
 const EXE_PATH: &str = "./target/debug/badm";
@@ -137,7 +138,7 @@ fn run_restore_symlink_test() -> io::Result<()> {
     let dotfile = mock_dotfile_in(stow_dir()).expect("failed to mock dotfile");
     let expected_restore_path = home_dir().join(&dotfile.file_name().unwrap());
 
-    badm_core::FileHandler::create_symlink(&dotfile, &expected_restore_path)?;
+    FileHandler::create_symlink(&dotfile, &expected_restore_path)?;
 
     mock_command()
         .args(&["restore", expected_restore_path.to_str().unwrap()])
@@ -145,7 +146,7 @@ fn run_restore_symlink_test() -> io::Result<()> {
         .expect("failed to execute badm restore");
 
     assert!(!dotfile.exists());
-    assert!(!badm_core::paths::is_symlink(&expected_restore_path));
+    assert!(!paths::is_symlink(&expected_restore_path));
 
     Ok(())
 }
