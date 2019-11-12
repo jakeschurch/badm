@@ -177,7 +177,7 @@ impl FileHandler {
         writer.write_all(contents.as_bytes())?;
 
         // remove file at src location
-        fs::remove_file(&src)
+        fs::remove_file(src)
     }
 
     /// Create a symlink at "dst" pointing to "src."

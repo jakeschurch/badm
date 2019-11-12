@@ -37,7 +37,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: nightly
           components: clippy
           override: true
       - uses: actions-rs/clippy-check@v1
@@ -53,7 +53,7 @@ jobs:
       - uses: actions/checkout@v1
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: nightly
           override: true
       - run: cargo install --force cargo-audit
       - run: cargo generate-lockfile
@@ -70,7 +70,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: nightly
           override: true
       - uses: actions-rs/cargo@v1
         with:
@@ -79,7 +79,6 @@ jobs:
 
   # Run tests on Linux and macOS
   # NOTE: not supporting Windows as of of yet
-  # On both Rust stable and Rust nightly
   test:
     name: Test Suite
     needs: [cargo_check]

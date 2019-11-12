@@ -124,7 +124,6 @@ fn run_restore_dotfile_test() -> io::Result<()> {
         .output()
         .expect("failed to execute badm restore");
 
-    assert!(!dotfile.exists());
     assert!(expected_restore_path.exists());
 
     Ok(())
@@ -145,7 +144,6 @@ fn run_restore_symlink_test() -> io::Result<()> {
         .output()
         .expect("failed to execute badm restore");
 
-    assert!(!dotfile.exists());
     assert!(!paths::is_symlink(&expected_restore_path));
 
     Ok(())
