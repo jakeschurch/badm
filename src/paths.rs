@@ -4,7 +4,7 @@ use std::io;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf, StripPrefixError};
 
-/// Wrapper for is_symlink for paths
+/// Wrapper for `is_symlink` for paths
 pub fn is_symlink(path: &Path) -> bool {
     fs::symlink_metadata(path)
         .map(|md| md.file_type().is_symlink())
@@ -18,7 +18,8 @@ pub(crate) fn read_path(path: &Path) -> io::Result<String> {
 
 pub(crate) fn read_file(file: &mut File) -> io::Result<String> {
     let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
+    let _ = file.read_to_string(&mut contents)?;
+
     Ok(contents)
 }
 
@@ -44,6 +45,7 @@ pub(crate) fn read_file(file: &mut File) -> io::Result<String> {
 ///     Ok(PathBuf::from("/home/ferris/.dotfiles/home/ferris"))
 /// );
 /// ```
+#[allow(clippy::module_name_repetitions)]
 pub fn join_full_paths(
     path_1: &Path,
     path_2: &Path,

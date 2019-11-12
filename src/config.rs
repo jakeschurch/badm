@@ -37,9 +37,11 @@ impl Config {
     /// Sets arg `path` at dotfiles directory, and writes TOML config file.
     ///
     /// If path is not available it will try to be created.
-    pub fn set_dots_dir(path: PathBuf) -> Result<PathBuf, InputError> {
+    pub fn set_dots_dir<P: AsRef<Path>>(path: P) -> Result<PathBuf, InputError> {
+        let path = path.as_ref();
+
         if !path.exists() {
-            fs::create_dir_all(&path).expect("could not create path");
+            fs::create_dir_all(path).expect("could not create path");
         } else if !path.is_dir() {
             return Err(InputError::BadInput {
                 err: io::Error::new(
@@ -49,30 +51,30 @@ impl Config {
             });
         };
 
-        let config = Config::new(&path)?;
+        let config = Self::new(&path)?;
 
         config
             .write_toml_config()
             .expect("could not write toml config");
-        Ok(path)
+        Ok(path.to_path_buf())
     }
 
     /// If config file `.badm.toml` exists, get dotfiles directory path.
     pub fn get_dots_dir() -> Option<PathBuf> {
-        if let Some(config_path) = Config::get_config_file() {
+        if let Some(config_path) = Self::get_config_file() {
             let toml = crate::paths::read_path(&config_path).unwrap();
 
-            let config: Config = toml::from_str(&toml).expect("Not able to read config!");
+            let config: Self = toml::from_str(&toml).expect("Not able to read config!");
             Some(config.directory)
         } else {
             None
         }
     }
 
-    /// Search $HOME and $XDG_CONFIG_HOME for config file path.
+    /// Search `$HOME` and `$XDG_CONFIG_HOME` for config file path.
     fn get_config_file() -> Option<PathBuf> {
         let search_paths = |file_name: &str, dirs_vec: Vec<PathBuf>| -> Option<PathBuf> {
-            for dir in dirs_vec.into_iter() {
+            for dir in dirs_vec {
                 let possible_file_path = dir.join(file_name);
 
                 if possible_file_path.exists() {
@@ -92,10 +94,10 @@ impl Config {
     /// Save configuration variables to config file `.badm.toml`. If file cannot be found
     /// it will be written to $HOME.
     ///
-    /// Valid locations for file location include: $HOME and $XDG_CONFIG_HOME.
+    /// Valid locations for file location include: `$HOME` and `$XDG_CONFIG_HOME`.
     pub fn write_toml_config(self) -> io::Result<()> {
         // check to see if config file already exists, if not default to HOME
-        let config_file_path = match Config::get_config_file() {
+        let config_file_path = match Self::get_config_file() {
             Some(path) => path,
             None => home_dir().unwrap().join(".badm.toml"),
         };
@@ -112,7 +114,7 @@ impl Config {
 
 impl TryFrom<File> for Config {
     type Error = InputError;
-    fn try_from(file: File) -> Result<Config, Self::Error> {
+    fn try_from(file: File) -> Result<Self, Self::Error> {
         let mut file = file;
 
         let contents = crate::paths::read_file(&mut file)?;
@@ -123,9 +125,9 @@ impl TryFrom<File> for Config {
 
 impl TryFrom<PathBuf> for Config {
     type Error = InputError;
-    fn try_from(path: PathBuf) -> Result<Config, Self::Error> {
+    fn try_from(path: PathBuf) -> Result<Self, Self::Error> {
         let file = File::open(path)?;
-        Config::try_from(file)
+        Self::try_from(file)
     }
 }
 
@@ -133,7 +135,7 @@ impl FromStr for Config {
     type Err = toml::de::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let config: Config = toml::from_str(s)?;
+        let config: Self = toml::from_str(s)?;
         Ok(config)
     }
 }
@@ -153,7 +155,7 @@ mod tests {
         }
 
         let dots_dir = home_dir.join(".dotfiles");
-        Config::set_dots_dir(dots_dir.clone())?;
+        let _ = Config::set_dots_dir(&dots_dir)?;
 
         let toml = crate::paths::read_path(&home_dir.join(".badm.toml"))
             .expect("could not read path");

@@ -52,9 +52,26 @@
 //! - `badm restore <FILE>` - restore the stored file from the dotfiles directory and
 //!   replace the symlink with the original file
 
-#![allow(clippy::all)]
-// #![deny(missing_docs)]
-#![allow(dead_code)]
+#![cfg_attr(test, deny(warnings))]
+#![deny(clippy::all)]
+#![deny(clippy::pedantic)]
+#![allow(clippy::must_use_candidate)]
+#![deny(
+    future_incompatible,
+    missing_debug_implementations,
+    missing_docs,
+    missing_copy_implementations,
+    missing_docs,
+    nonstandard_style,
+    trivial_casts,
+    trivial_numeric_casts,
+    unsafe_code,
+    unused_extern_crates,
+    unused_import_braces,
+    unused_qualifications,
+    unused_results,
+    unused_qualifications
+)]
 
 pub mod commands;
 pub(crate) mod config;
@@ -73,6 +90,7 @@ use std::path::{Path, PathBuf};
 // TODO: create dotfile struct
 
 /// Struct used to traverse directories and collect entries located within.
+#[derive(Debug)]
 pub struct DirScanner {
     entries: Vec<PathBuf>,
     recursive: bool,
@@ -80,8 +98,8 @@ pub struct DirScanner {
 
 impl DirScanner {
     /// Given a directory, traverse path and get entries located within `dir`.
-    /// If the [`DirScanner::recursive`] method is not called before get_entries, it will
-    /// only traverse one level below.
+    /// If the [`DirScanner::recursive`] method is not called before `get_entries`, it
+    /// will only traverse one level below.
     ///
     /// [`DirScanner::recursive`]: struct.DirScanner.html/#method.recursive
     pub fn get_entries(mut self, dir: &Path) -> io::Result<Vec<PathBuf>> {
@@ -101,13 +119,6 @@ impl DirScanner {
             .collect();
 
         Ok(self.entries)
-    }
-
-    fn new() -> Self {
-        DirScanner {
-            entries: Vec::new(),
-            recursive: false,
-        }
     }
 
     /// Builder method to set recursive flag to `true` when scanning directory.
@@ -136,13 +147,14 @@ impl DirScanner {
 
 impl Default for DirScanner {
     fn default() -> Self {
-        DirScanner {
+        Self {
             entries: vec![],
             recursive: false,
         }
     }
 }
 
+#[derive(Copy, Clone, Debug)]
 /// Moves, stores, and creates files and symlinks.
 pub struct FileHandler;
 
@@ -150,8 +162,8 @@ impl FileHandler {
     /// Store a file in the dotfiles directory, create a symlink at the original
     /// source of the stowed file.
     pub fn store_file(src: &Path, dst: &Path) -> io::Result<()> {
-        FileHandler::move_file(src, dst)?;
-        FileHandler::create_symlink(dst, src)
+        Self::move_file(src, dst)?;
+        Self::create_symlink(dst, src)
     }
 
     /// Read file at path src and write to created/truncated file at path dst.

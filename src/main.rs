@@ -1,5 +1,3 @@
-#![allow(clippy::all)]
-
 use glob::glob;
 use std::fs;
 use std::io;
@@ -151,7 +149,7 @@ fn deploy(values: &ArgMatches) -> io::Result<()> {
         let paths: Vec<PathBuf> = values
             .values_of("dotfiles")
             .unwrap()
-            .map(|path| PathBuf::from(path))
+            .map(PathBuf::from)
             .collect();
 
         validate_paths(paths)
@@ -177,7 +175,7 @@ fn restore(matches: &ArgMatches) -> io::Result<()> {
     let dotfiles: Vec<PathBuf> = matches
         .values_of("dotfiles")
         .unwrap()
-        .map(|path| PathBuf::from(path))
+        .map(PathBuf::from)
         .collect();
 
     for dotfile in dotfiles.into_iter() {
