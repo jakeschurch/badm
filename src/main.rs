@@ -106,7 +106,15 @@ fn main() -> Result<(), Error> {
         ("stow", Some(stow_matches)) => stow(stow_matches)?,
         ("deploy", Some(deploy_matches)) => deploy(deploy_matches)?,
         ("restore", Some(restore_matches)) => restore(restore_matches)?,
-        _ => unreachable!(),
+        _ => {
+            let output = Command::new("badm")
+                .arg("--help")
+                .stdout(Stdio::inherit())
+                .output()
+                .expect("not able to display help message!");
+
+            io::stdout().write_all(&output.stdout).unwrap();
+        },
     }
     Ok(())
 }
