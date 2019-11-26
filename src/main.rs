@@ -1,4 +1,5 @@
 use glob::glob;
+use human_panic::setup_panic;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -28,6 +29,8 @@ fn validate_paths(paths: Vec<PathBuf>) -> Vec<PathBuf> {
 }
 
 fn main() -> Result<(), Error> {
+    setup_panic!();
+
     let set_dir_subcommand = App::new("set-dir")
         .about("set path of dotfiles directory")
         .version("1.0")
