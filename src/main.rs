@@ -1,9 +1,9 @@
 use glob::glob;
 use human_panic::setup_panic;
 use std::fs;
-use std::io;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
-
+use std::process::{Command, Stdio};
 #[macro_use] extern crate clap;
 
 use clap::{App, Arg, ArgMatches};
@@ -91,8 +91,8 @@ fn main() -> Result<(), Error> {
     let matches = App::new("badm")
         .about(crate_description!())
         .version(crate_version!())
-        .author(crate_authors!())
         .after_help("https://github.com/jakeschurch/badm")
+        .author(crate_authors!())
         .subcommands(vec![
             set_dir_subcommand,
             stow_subcommand,
@@ -127,7 +127,7 @@ fn set_dir<P: AsRef<Path>>(path: P) -> Result<(), Error> {
 
     let set_path = Config::set_dots_dir(path)?;
 
-    println! {"BADM dotfiles path has been set to: {:?}", set_path};
+    println! {"BADM dotfiles directory has been set to: {:?}", set_path};
     Ok(())
 }
 
@@ -143,13 +143,15 @@ fn stow(values: &ArgMatches) -> io::Result<()> {
 
     for path in input_paths.into_iter() {
         let dst_path = commands::store_dotfile(&path)?;
-        commands::deploy_dotfile(&dst_path, &path)?;
+        match commands::deploy_dotfile(&dst_path, &path) {
+            Ok(_) => println! {"{:?} has been stowed to {:?}", path, dst_path},
+            Err(_) => eprintln! {"{:?} could not be stowed to {:?}!", path, dst_path},
+        };
     }
     Ok(())
 }
 
 fn deploy(values: &ArgMatches) -> io::Result<()> {
-    println!("inside of deploy");
     let dotfiles_dir = Config::get_dots_dir().unwrap();
 
     let dotfiles = if values.is_present("all") {
@@ -167,16 +169,16 @@ fn deploy(values: &ArgMatches) -> io::Result<()> {
     };
 
     for dotfile in dotfiles.into_iter() {
-        println!("{:?}", dotfile);
-
         let dst_path = PathBuf::from("/").join(
             dotfile
                 .strip_prefix(&dotfiles_dir)
                 .expect("could not strip dotfile path"),
         );
-        println!("dst path: {:?}", dst_path);
 
-        commands::deploy_dotfile(&dotfile, &dst_path)?;
+        match commands::deploy_dotfile(&dotfile, &dst_path) {
+            Ok(_) => println!("{:?} has been deployed to {:?}", dotfile, dst_path),
+            Err(_) => eprintln!("{:?} could not be deployed to {:?}", dotfile, dst_path),
+        };
     }
 
     Ok(())
