@@ -141,13 +141,19 @@ fn stow(values: &ArgMatches) -> io::Result<()> {
         input_paths.append(&mut path_vec);
     }
 
+    let exception_files: Vec<PathBuf>;
+
     for path in input_paths.into_iter() {
         let dst_path = commands::store_dotfile(&path)?;
-        match commands::deploy_dotfile(&dst_path, &path) {
-            Ok(_) => println! {"{:?} has been stowed to {:?}", path, dst_path},
-            Err(_) => eprintln! {"{:?} could not be stowed to {:?}!", path, dst_path},
+
+        if let Err(_) = commands::deploy_dotfile(&dst_path, &path) {
+            exception_files.push(path)
         };
     }
+
+    // log files that couldn't be deployed
+    print_exceptions("The following files could not be stowed:", exception_files);
+
     Ok(())
 }
 
@@ -168,6 +174,8 @@ fn deploy(values: &ArgMatches) -> io::Result<()> {
         validate_paths(paths)
     };
 
+    let exception_files = Vec::<PathBuf>;
+
     for dotfile in dotfiles.into_iter() {
         let dst_path = PathBuf::from("/").join(
             dotfile
@@ -175,11 +183,13 @@ fn deploy(values: &ArgMatches) -> io::Result<()> {
                 .expect("could not strip dotfile path"),
         );
 
-        match commands::deploy_dotfile(&dotfile, &dst_path) {
-            Ok(_) => println!("{:?} has been deployed to {:?}", dotfile, dst_path),
-            Err(_) => eprintln!("{:?} could not be deployed to {:?}", dotfile, dst_path),
+        if let Err(_) = commands::deploy_dotfile(&dotfile, &dst_path) {
+            exception_files.push(dotfile)
         };
     }
+
+    // log files that couldn't be deployed
+    print_exceptions("The following files could not deployed:", exception_files);
 
     Ok(())
 }
@@ -195,4 +205,12 @@ fn restore(matches: &ArgMatches) -> io::Result<()> {
         commands::restore_dotfile(dotfile)?;
     }
     Ok(())
+}
+
+fn print_exceptions(msg: String, files: Vec<PathBuf>) {
+    println! {"{}", msg};
+
+    for file in files {
+        println! {"\t{}", file};
+    }
 }
