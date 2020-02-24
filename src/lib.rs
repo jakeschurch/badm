@@ -54,12 +54,10 @@
 
 #![cfg_attr(test, deny(warnings))]
 #![deny(clippy::all)]
-#![deny(clippy::pedantic)]
 #![allow(clippy::must_use_candidate)]
 #![deny(
     future_incompatible,
     missing_debug_implementations,
-    missing_docs,
     missing_copy_implementations,
     missing_docs,
     nonstandard_style,
