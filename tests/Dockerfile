@@ -1,4 +1,4 @@
-FROM rust:1.38.0-slim
+FROM instrumentisto/rust:nightly-slim
 ENV RUST_BACKTRACE="full"
 
 # create a new empty shell project
@@ -16,4 +16,4 @@ WORKDIR /src/badm
 COPY . .
 
 # "-Z unstable-options" is required for "--include-ignored"
-CMD ["cargo", "test", "--", "-Z", "unstable-options", "--include-ignored", "--nocapture"]
+CMD ["cargo", "test", "--", "-Z", "unstable-options", "--include-ignored", "--nocapture", "--test-threads=1"]
