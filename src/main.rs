@@ -2,33 +2,30 @@ use glob::glob;
 use human_panic::setup_panic;
 use std::fs;
 use std::io::{self, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
 #[macro_use] extern crate clap;
+#[macro_use] extern crate log;
 
 use clap::{App, Arg, ArgMatches};
 use failure::Error;
 
-use badm::commands;
-use badm::paths;
+use badm::{commands, paths};
 use badm::{Config, DirScanner};
 
-fn validate_paths(paths: Vec<PathBuf>) -> Vec<PathBuf> {
-    paths
-        .into_iter()
-        .filter(|path| path.is_file() && !paths::is_symlink(path))
-        .map(|path| {
-            if path.is_relative() {
-                fs::canonicalize(path)
-            } else {
-                Ok(path)
-            }
-        })
-        .filter_map(Result::ok)
-        .collect::<Vec<PathBuf>>()
+fn setup_logging() {
+    use env_logger::Builder;
+
+    let mut builder = Builder::new();
+
+    builder
+        .filter_module("badm", log::LevelFilter::Trace)
+        .format_timestamp(None)
+        .init();
 }
 
 fn main() -> Result<(), Error> {
+    setup_logging();
     setup_panic!();
 
     let set_dir_subcommand = App::new("set-dir")
@@ -66,15 +63,15 @@ fn main() -> Result<(), Error> {
         .arg(
             Arg::with_name("dotfiles")
                 .help("stored dotfile/s to be deployed to system")
-                .required(true)
+                .required(false)
                 .multiple(true),
         )
         .arg(
             Arg::with_name("all")
                 .help("deploy all stored dotfiles")
                 .long("all")
-                .conflicts_with("dotfiles")
-                .required(true),
+                .required(false)
+                .conflicts_with("dotfiles"),
         );
 
     let restore_subcommand = App::new("restore")
@@ -104,11 +101,13 @@ fn main() -> Result<(), Error> {
     match matches.subcommand() {
         ("set-dir", Some(set_dir_matches)) => {
             let dir_path = set_dir_matches.value_of("directory").unwrap();
-            set_dir(dir_path)?
+            set_dir(dir_path.into())?
         },
         ("stow", Some(stow_matches)) => stow(stow_matches)?,
         ("deploy", Some(deploy_matches)) => deploy(deploy_matches)?,
         ("restore", Some(restore_matches)) => restore(restore_matches)?,
+
+        // print --help by default
         _ => {
             let output = Command::new("badm")
                 .arg("--help")
@@ -122,13 +121,32 @@ fn main() -> Result<(), Error> {
     Ok(())
 }
 
-fn set_dir<P: AsRef<Path>>(path: P) -> Result<(), Error> {
-    let path = path.as_ref().to_path_buf();
+fn validate_paths(paths: Vec<PathBuf>) -> Vec<PathBuf> {
+    paths
+        .into_iter()
+        .filter(|path| path.is_file() && !paths::is_symlink(path))
+        .map(|path| {
+            if path.is_relative() {
+                fs::canonicalize(path)
+            } else {
+                Ok(path)
+            }
+        })
+        .filter_map(Result::ok)
+        .collect::<Vec<PathBuf>>()
+}
 
-    let set_path = Config::set_dots_dir(path)?;
-
-    println! {"BADM dotfiles directory has been set to: {:?}", set_path};
-    Ok(())
+fn set_dir(path: PathBuf) -> Result<(), Error> {
+    match Config::set_dots_dir(&path) {
+        Ok(set_path) => {
+            info! {"BADM dotfiles directory has been set to: {:?}", set_path};
+            Ok(())
+        },
+        Err(err) => {
+            error! {"Could not set BADM dotfiles directory to {:?}. Error: {}", path, err};
+            Err(err.into())
+        },
+    }
 }
 
 fn stow(values: &ArgMatches) -> io::Result<()> {
@@ -141,18 +159,25 @@ fn stow(values: &ArgMatches) -> io::Result<()> {
         input_paths.append(&mut path_vec);
     }
 
-    let exception_files: Vec<PathBuf>;
-
-    for path in input_paths.into_iter() {
-        let dst_path = commands::store_dotfile(&path)?;
-
-        if let Err(_) = commands::deploy_dotfile(&dst_path, &path) {
-            exception_files.push(path)
+    'path: for path in input_paths.into_iter() {
+        let dst_path = match commands::store_dotfile(&path) {
+            Ok(dst_path) => dst_path,
+            Err(err) => {
+                error!("Could not stow file {:?}. Error: {}", &path, err);
+                continue 'path;
+            },
         };
-    }
 
-    // log files that couldn't be deployed
-    print_exceptions("The following files could not be stowed:", exception_files);
+        commands::deploy_dotfile(&dst_path, &path).map_or_else(
+            |err| {
+                error!(
+                    "Stowed file {:?} could not be deployed. Error: {}",
+                    path, err
+                )
+            },
+            |_| debug!("{:?} deployed -> {:?}", dst_path, path),
+        );
+    }
 
     Ok(())
 }
@@ -174,8 +199,6 @@ fn deploy(values: &ArgMatches) -> io::Result<()> {
         validate_paths(paths)
     };
 
-    let exception_files = Vec::<PathBuf>;
-
     for dotfile in dotfiles.into_iter() {
         let dst_path = PathBuf::from("/").join(
             dotfile
@@ -183,13 +206,11 @@ fn deploy(values: &ArgMatches) -> io::Result<()> {
                 .expect("could not strip dotfile path"),
         );
 
-        if let Err(_) = commands::deploy_dotfile(&dotfile, &dst_path) {
-            exception_files.push(dotfile)
-        };
+        commands::deploy_dotfile(&dotfile, &dst_path).map_or_else(
+            |err| error!("{:?} could not be deployed. Error: {}", dotfile, err),
+            |_| debug!("{:?} -> deployed {:?}", dotfile, dst_path),
+        );
     }
-
-    // log files that couldn't be deployed
-    print_exceptions("The following files could not deployed:", exception_files);
 
     Ok(())
 }
@@ -201,16 +222,9 @@ fn restore(matches: &ArgMatches) -> io::Result<()> {
         .map(PathBuf::from)
         .collect();
 
-    for dotfile in dotfiles.into_iter() {
-        commands::restore_dotfile(dotfile)?;
+    for dotfile in dotfiles.iter() {
+        let _ = commands::restore_dotfile(dotfile.to_path_buf())
+            .map_err(|err| error!("{:?} could not be restored. Error: {}", dotfile, err));
     }
     Ok(())
-}
-
-fn print_exceptions(msg: String, files: Vec<PathBuf>) {
-    println! {"{}", msg};
-
-    for file in files {
-        println! {"\t{}", file};
-    }
 }
