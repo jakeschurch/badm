@@ -44,9 +44,15 @@ badm stores your dotfiles in a directory that replicates the directory hierarchy
     └── .gitconfig -> /home/ferris/.dots/home/ferris/.gitconfig
 </pre>
 
-## WIP: Getting Started/Installation
+## Getting Started
 
-TODO: will populate for v1.0.0 release
+### Installation
+
+Make sure to have [Rust and cargo](https://www.rust-lang.org/tools/install) installed
+
+```bash
+cargo install badm
+```
 
 ## Commands
 
@@ -73,7 +79,7 @@ TODO: will populate for v1.0.0 release
 
 Pull requests, issues/feature requests, and bug reports are welcome!
 
-## Similar Projects
+## See Also
 
 - [GNU Stow](https://www.gnu.org/software/stow/)
 - [YADM](https://www.yadm.io)
