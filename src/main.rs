@@ -4,8 +4,10 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
-#[macro_use] extern crate clap;
-#[macro_use] extern crate log;
+#[macro_use]
+extern crate clap;
+#[macro_use]
+extern crate log;
 
 use clap::{App, Arg, ArgMatches};
 use failure::Error;
@@ -102,7 +104,7 @@ fn main() -> Result<(), Error> {
         ("set-dir", Some(set_dir_matches)) => {
             let dir_path = set_dir_matches.value_of("directory").unwrap();
             set_dir(dir_path.into())?
-        },
+        }
         ("stow", Some(stow_matches)) => stow(stow_matches)?,
         ("deploy", Some(deploy_matches)) => deploy(deploy_matches)?,
         ("restore", Some(restore_matches)) => restore(restore_matches)?,
@@ -116,7 +118,7 @@ fn main() -> Result<(), Error> {
                 .expect("not able to display help message!");
 
             io::stdout().write_all(&output.stdout).unwrap();
-        },
+        }
     }
     Ok(())
 }
@@ -141,11 +143,11 @@ fn set_dir(path: PathBuf) -> Result<(), Error> {
         Ok(set_path) => {
             info! {"BADM dotfiles directory has been set to: {:?}", set_path};
             Ok(())
-        },
+        }
         Err(err) => {
             error! {"Could not set BADM dotfiles directory to {:?}. Error: {}", path, err};
             Err(err.into())
-        },
+        }
     }
 }
 
@@ -165,7 +167,7 @@ fn stow(values: &ArgMatches) -> io::Result<()> {
             Err(err) => {
                 error!("Could not stow file {:?}. Error: {}", &path, err);
                 continue 'path;
-            },
+            }
         };
 
         commands::deploy_dotfile(&dst_path, &path).map_or_else(
