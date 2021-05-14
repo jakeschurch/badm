@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 #[macro_use] extern crate clap;
 
-use clap::{App, Arg, ArgMatches};
+use clap::{App, AppSettings, Arg, ArgMatches};
 use failure::Error;
 
 use badm::commands;
@@ -86,6 +86,7 @@ fn main() -> Result<(), Error> {
         );
 
     let matches = App::new("badm")
+        .setting(AppSettings::ArgRequiredElseHelp)
         .about(crate_description!())
         .version(crate_version!())
         .author(crate_authors!())
@@ -106,7 +107,7 @@ fn main() -> Result<(), Error> {
         ("stow", Some(stow_matches)) => stow(stow_matches)?,
         ("deploy", Some(deploy_matches)) => deploy(deploy_matches)?,
         ("restore", Some(restore_matches)) => restore(restore_matches)?,
-        _ => unreachable!(),
+        _ => {},
     }
     Ok(())
 }
