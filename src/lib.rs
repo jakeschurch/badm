@@ -54,7 +54,6 @@
 
 #![cfg_attr(test, deny(warnings))]
 #![deny(clippy::all)]
-#![deny(clippy::pedantic)]
 #![allow(clippy::must_use_candidate)]
 #![deny(
     future_incompatible,

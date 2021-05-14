@@ -60,7 +60,6 @@ pub fn join_full_paths(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile;
 
     #[test]
     fn is_symlink_test() -> io::Result<()> {

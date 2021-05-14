@@ -8,7 +8,6 @@ use std::str::FromStr;
 use crate::errors::InputError;
 use dirs::{config_dir, home_dir};
 use serde_derive::{Deserialize, Serialize};
-use toml;
 
 /// Handles and saves configuration variables between application calls.
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
